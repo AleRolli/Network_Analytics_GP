@@ -1,8 +1,6 @@
 ---
 title: "Network Analytics - Group Assignment 2"
-author: "Nome Cognome 1, Nome Cognome 2..."
-date: "3 Maggio 2026"
-output: html_document
+author: "Rollandin Alessandro, Titze Konstantin, Haussmann Maximilian, Ciorciolini Francesco, Borella Riccardo"
 ---
 
 ```{r setup, include=FALSE}
@@ -21,3 +19,30 @@ save(dt.movie.actor, file = "imdb_movie_actor.RData")
 load("imdb_movie_actor.RData")
 ```
 
+## Part 1: `data.table`
+### Question 1
+```{r}
+num_movies <- dt.movie.actor[, uniqueN(movie)]
+print(num_movies)
+```
+
+### Question 2
+```{r}
+actors_fight_club <- dt.movie.actor[movie == "Fight Club (1999)", unique(actor)]
+print(actors_fight_club)
+
+actors_se7en <- dt.movie.actor[movie == "Se7en (1995)", unique(actor)]
+print(actors_se7en)
+```
+
+### Question 3
+```{r}
+actor_both_movies <- intersect(actors_fight_club, actors_se7en)
+print(actor_both_movies)
+```
+
+### Question 4
+```{r}
+movie_brad_pitt_george_clooney <- dt.movie.actor[actor %in% c("Brad Pitt (b.1963)", "George Clooney (b.1961)"), unique(movie)]
+print(movie_brad_pitt_george_clooney)
+```
