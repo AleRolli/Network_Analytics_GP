@@ -90,3 +90,32 @@ top_year_participation <- dt_popular[, .(n_parts = .N), by = .(year, actor)][ord
 print("Year and actor with the most participations:")
 print(top_year_participation)
 ```
+
+## Part 2: `ggplot2`
+### Question 1
+```{r}
+dt.movies.per.year <- dt.movie.actor[, .(n_movies = uniqueN(movie)), by = year]
+
+ggplot(dt.movies.per.year, aes(x = year, y = n_movies)) +
+  geom_bar(stat = "identity")
+```
+Movie production grew steadily from the early 1900s, with a sharp acceleration from the 1990s onwards, reflecting the globalisation of film production and the rise of digital filmmaking. There is a noticeable dip around the 1930s-40s, which can likely be explained by the Great Depression and World War II, both of which severely impacted the film industry. After the war, production recovered and grew gradually through the 1960s-80s before exploding in the 1990s and 2000s. One strange observation is that the last bar (2019) appears slightly lower than 2017 and 2018, which is unexpected given the general upward trend. This is most likely because the dataset was collected in January 2020, meaning not all 2019 movies had been added to IMDb yet at the time of collection.
+
+### Question 2
+```{r}
+dt.votes <- unique(dt.movie.actor[, .(movie, votes)])
+
+ggplot(dt.votes, aes(x = votes)) +
+  geom_histogram() +
+  scale_x_log10()
+```
+The distribution of IMDb votes per movie is extremely right-skewed. The vast majority of movies in the dataset have received very few votes while a tiny fraction of well-known blockbusters have accumulated hundreds of thousands or even millions of votes. This makes intuitive sense, as most movies in the dataset are obscure or low-budget productions that very few people have watched or rated. The log scale makes the shape much clearer, revealing that the distribution peaks before 100 votes and then tapers off gradually towards the right.
+
+### Question 3
+```{r}
+dt.actors.per.movie <- unique(dt.movie.actor[, .(movie, n_actors)])
+
+ggplot(dt.actors.per.movie, aes(x = n_actors)) +
+  geom_histogram(binwidth = 1)
+```
+The vast majority of movies have exactly 4 actors listed, which is likely a structural feature of how IMDb records principal cast. Very few movies have more than 8 or fewer than 3 actors.
