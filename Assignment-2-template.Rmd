@@ -210,7 +210,35 @@ ecount(g.bipartite)
     -   Eigenvector centrality
 
 ```{r}
-# <answer here>
+# Create vertex list with type attribute (following class style)
+all.actors <- dt.movie.actor[movie %in% top.movies.2010.2019, list(name = unique(actor), type = TRUE)]
+all.movies <- dt.movie.actor[movie %in% top.movies.2010.2019, list(name = unique(movie), type = FALSE)]
+all.vertices <- rbind(all.actors, all.movies)
+
+# Build bipartite graph
+g <- graph.data.frame(dt.movie.actor[movie %in% top.movies.2010.2019,list(movie, actor)], 
+                      directed = FALSE, vertices = all.vertices)
+
+# Project to movie space 
+g.movies <- bipartite.projection(g)$proj1
+summary(g.movies)
+
+# Calculate degree centrality
+V(g.movies)$degree <- degree(g.movies)
+
+# Remove movies with no connections (degree == 0)
+g.movies.connected <- induced.subgraph(g.movies, vids = V(g.movies)[V(g.movies)$degree > 0])
+summary(g.movies.connected)
+
+# Calculate all centrality measures
+V(g.movies.connected)$degree <- degree(g.movies.connected)
+V(g.movies.connected)$closeness <- closeness(g.movies.connected)
+V(g.movies.connected)$betweenness <- betweenness(g.movies.connected)
+V(g.movies.connected)$evcent <- evcent(g.movies.connected)$vector
+
+# Convert to data.table for analysis
+dt.g.movies <- data.table(get.data.frame(g.movies.connected, "vertices"))
+head(dt.g.movies[order(-betweenness)], 10)
 ```
 
 3.  For each centrality measure, list the top 20 movies with highest
@@ -219,7 +247,21 @@ ecount(g.bipartite)
     betweenness** to four decimal places. `[2 points]`
 
 ```{r}
-# <answer here>
+# Top 20 by each centrality measure (following class head/order style)
+cat("Top 20 Centrality")
+head(dt.g.movies[order(-degree)], 20)
+
+cat("Top 20 by Closeness")
+head(dt.g.movies[order(-closeness)], 20)
+
+cat("Top 20 by Betweenness")
+head(dt.g.movies[order(-betweenness)], 20)
+
+cat("Top 20 by Eigenvector")
+head(dt.g.movies[order(-evcent)], 20)
+
+# Report exact betweenness of top-ranked movie
+dt.g.movies[order(-betweenness)][1, .(name, betweenness = round(betweenness, 4))]
 ```
 
 4.  Calculate the average clustering coefficient for the movies
