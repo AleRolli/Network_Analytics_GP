@@ -177,14 +177,12 @@ all the code you created/used in your answer.
 
 ```{r}
 # Filter to actors from top 50 most popular movies of 2010-2019 decade
-top.movies.2010.2019 <- dt.movie.actor[
-    year >= 2010 & year <= 2019, 
+top.movies.2010.2019 <- dt.movie.actor[year >= 2010 & year <= 2019, 
     .N, by = list(movie, votes)
     ][order(-votes)][1:50, movie]
 
-actors.in.top <- dt.movie.actor[
-    movie %in% top.movies.2010.2019, 
-    unique(actor)]
+actors.in.top <- dt.movie.actor[movie %in% top.movies.2010.2019, 
+                                unique(actor)]
 
 # Create bipartite graph with actors and movies
 edges <- dt.movie.actor[movie %in% top.movies.2010.2019, 
@@ -214,18 +212,25 @@ ecount(g.bipartite)
     -   Eigenvector centrality
 
 ```{r}
-# Project to movie space
-g.movies <- bipartite.projection(g.bipartite)$proj1
+# Create vertex list with type attribute (following class style)
+all.actors <- dt.movie.actor[movie %in% top.movies.2010.2019, list(name = unique(actor), type = TRUE)]
+all.movies <- dt.movie.actor[movie %in% top.movies.2010.2019, list(name = unique(movie), type = FALSE)]
+all.vertices <- rbind(all.actors, all.movies)
+
+# Build bipartite graph
+g <- graph.data.frame(dt.movie.actor[movie %in% top.movies.2010.2019,  
+                                     list(movie, actor)
+                                     ], directed = FALSE, vertices = all.vertices)
+
+# Project to movie space 
+g.movies <- bipartite.projection(g)$proj1
 summary(g.movies)
 
 # Calculate degree centrality
 V(g.movies)$degree <- degree(g.movies)
 
 # Remove movies with no connections (degree == 0)
-g.movies.connected <- induced.subgraph(
-  g.movies,
-  vids = V(g.movies)[V(g.movies)$degree > 0]
-)
+g.movies.connected <- induced.subgraph(g.movies, vids = V(g.movies)[V(g.movies)$degree > 0])
 summary(g.movies.connected)
 
 # Calculate all centrality measures
