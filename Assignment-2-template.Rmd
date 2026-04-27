@@ -212,7 +212,7 @@ ecount(g.bipartite)
     -   Eigenvector centrality
 
 ```{r}
-# Create vertex list with type attribute (following class style)
+# Create vertex list with type attribute
 all.actors <- dt.movie.actor[movie %in% top.movies.2010.2019, list(name = unique(actor), type = TRUE)]
 all.movies <- dt.movie.actor[movie %in% top.movies.2010.2019, list(name = unique(movie), type = FALSE)]
 all.vertices <- rbind(all.actors, all.movies)
