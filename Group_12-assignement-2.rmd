@@ -207,3 +207,128 @@ The three Avengers films received perfect scores of 1.0, indicating that they ar
 Key Insight: Different films are central for different reasons. The Avengers films are highly connected and influential, while Shutter Island acts as a critical bridge between different movie clusters. Films with high closeness centrality, such as X-Men: First Class, occupy more balanced positions within the network.
 
 The exact betweenness centrality of the top-ranked movie is: Shutter Island (2010): 144.4286
+
+### Question 4
+```{r}
+avg.clustering <- transitivity(g.movies.connected, type = "global")
+
+print(paste("Average clustering coefficient:", round(avg.clustering, 4)))
+```
+The average clustering coefficient for the movies network is 0.6327. This value indicates a high degree of connectivity among movies through shared actors, reflecting the collaborative nature of the industry. However, it is slightly lower than the typical range of 0.75-0.85 usually observed in such networks. This deviation might be due to the specific selection of the top 50 most popular movies, which likely belong to diverse genres or franchises that do not overlap as much as a broader dataset might.
+
+### Question 5
+```{r}
+# Define the target movie
+my.movie <- "The Avengers (2012)"
+print(paste("Selected Movie:", my.movie))
+
+# Extract the ego graph (neighborhood) for the selected movie
+g.movie.neighborhood <- make_ego_graph(
+  g.movies.connected, 
+  order = 1, 
+  nodes = my.movie
+)[[1]]
+
+# Plot the neighborhood network
+plot(
+  g.movie.neighborhood, 
+  vertex.size = ifelse(V(g.movie.neighborhood)$name == my.movie, 15, 8),
+  vertex.color = ifelse(V(g.movie.neighborhood)$name == my.movie, "tomato", "lightblue"),
+  vertex.label.cex = 0.7,
+  vertex.label.color = "black",
+  main = paste("Neighborhood of", my.movie)
+)
+
+# Calculate local clustering coefficient
+local.cc <- transitivity(g.movies.connected, type = "local", vids = my.movie)
+print(paste("Local Clustering Coefficient:", round(local.cc, 4)))
+
+# Compute ratio to network average
+cc.ratio <- local.cc / avg.clustering
+print(paste("Ratio (Local / Network Average):", round(cc.ratio, 2)))
+
+# Filter actors belonging to neighbors but excluding target actors
+target.actors <- dt.movie.actor[movie == my.movie, actor]
+neighbor.movies <- V(g.movie.neighborhood)$name[V(g.movie.neighborhood)$name != my.movie]
+
+neighbor.actors <- dt.movie.actor[
+  movie %in% neighbor.movies & !(actor %in% target.actors), 
+  actor
+]
+
+# Find the most frequent actor
+top.neighbor.actor <- names(sort(table(neighbor.actors), decreasing = TRUE)[1])
+actor.freq <- sort(table(neighbor.actors), decreasing = TRUE)[1]
+
+print(paste(
+  "Top actor in neighborhood (but not in movie):", 
+  top.neighbor.actor, 
+  "with", 
+  actor.freq, 
+  "participations."
+))
+```
+We chose to analyze the movie The Avengers (2012). The local clustering coefficient of this movie is 0.8571. The ratio of this movie's clustering coefficient to the network average (0.6327) is 1.35, indicating that this movie is part of a much more densely interconnected local neighborhood than the network average.
+
+After analyzing the neighborhood, the actor with the most participations among these neighboring movies, but not having participated in the movie itself (according to the dataset's specific entries), is Chris Hemsworth (b.1983) with 3 participations.
+
+### Question 6
+```{r}
+# Calculate empirical degree distribution
+emp.deg.dist <- degree_distribution(g.movies.connected)
+
+# Generate an equivalent random graph (Erdos-Renyi)
+n.v <- vcount(g.movies.connected)
+n.e <- ecount(g.movies.connected)
+g.random <- erdos.renyi.game(n.v, n.e, type = "gnm")
+
+# Calculate random graph degree distribution
+rand.deg.dist <- degree_distribution(g.random)
+
+# Plot distributions
+max.deg <- max(length(emp.deg.dist), length(rand.deg.dist)) - 1
+
+plot(
+  0:(length(emp.deg.dist) - 1), 
+  emp.deg.dist, 
+  type = "b", 
+  col = "blue", 
+  pch = 16, 
+  xlab = "Degree", 
+  ylab = "Frequency / Probability", 
+  main = "Degree Distribution: Movies vs Random Graph",
+  xlim = c(0, max.deg)
+)
+
+points(
+  0:(length(rand.deg.dist) - 1), 
+  rand.deg.dist, 
+  type = "b", 
+  col = "red", 
+  pch = 17
+)
+
+legend(
+  "topright", 
+  legend = c("Movies Network", "Random Graph"), 
+  col = c("blue", "red"), 
+  pch = c(16, 17), 
+  lty = 1
+)
+
+# Identify bridge movie: high betweenness but not top degree
+top5.betw <- head(dt.g.movies[order(-betweenness)]$name, 5)
+top10.degree <- head(dt.g.movies[order(-degree)]$name, 10)
+
+# Find the anomaly using set difference
+bridge.movie.list <- setdiff(top5.betw, top10.degree)
+bridge.movie <- bridge.movie.list[1]
+bridge.betweenness <- dt.g.movies[name == bridge.movie, betweenness]
+
+print(paste("Bridge Movie:", bridge.movie))
+print(paste("Exact Betweenness:", round(bridge.betweenness, 4)))
+```
+Comparing the degree distribution of our movies network with a random (Erdős-Rényi) graph reveals significant differences. While the random graph's degree distribution is bell-shaped and concentrated around its mean, our network shows a right-skewed distribution with a longer tail. This reflects the "hub" phenomenon typical of the film industry, where highly successful franchises create nodes with an exceptionally high number of connections compared to an average movie.
+
+A movie acting as a critical bridge in this network is Now You See Me (2013). It ranks in the top 5 by betweenness centrality but does not appear in the top 10 by degree centrality. Its exact betweenness centrality is 84.4286. This movie serves as a crucial bridge because it acts as the shortest path connecting distinct, otherwise isolated clusters (such as different actor circles or genres), despite having relatively few direct connections itself.
+
