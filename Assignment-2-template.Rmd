@@ -199,6 +199,8 @@ V(g.bipartite)$type <- !V(g.bipartite)$name %in% unique(edges$movie)
 summary(g.bipartite)
 ecount(g.bipartite) 
 ```
+There are 200 movie participations.
+
 
 2.  Create a graph in which two movies are connected to each other if
     they have <span class="underline">at least one actor in common</span>. Calculate the <span class="underline">degree
@@ -259,6 +261,21 @@ head(dt.g.movies[order(-evcent)], 20)
 # Report exact betweenness of top-ranked movie
 dt.g.movies[order(-betweenness)][1, .(name, betweenness = round(betweenness, 4))]
 ```
+Interpretation of Centrality Measures:
+Degree Centrality: 
+The Avengers series dominates with the highest degree of centrality, with each film having 11 connections. This indicates that these films share the most actors with other movies in the top 50, making them highly connected hubs in the actor-sharing network.
+Closeness Centrality: 
+X-Men: First Class (2011) has the highest closeness centrality score (0.0556), followed by other films with large casts, such as Silver Linings Playbook (2012) and X-Men: Days of Future Past (2014). On average, these movies are closer to the other movies, suggesting that they occupy more central positions in the network's overall structure.
+Betweenness Centrality: 
+Shutter Island (2010) takes the top spot with a score of 144.4286, followed by Now You See Me (2013) with 84.4286 and The Revenant (2015) with 63.50. These films act as crucial bridges, connecting different clusters of films through shared actors. Shutter Island is especially important in connecting parts of the network that would otherwise be disconnected.
+Eigenvector Centrality: 
+The three Avengers films received perfect scores of 1.0, indicating that they are connected to other highly connected movies. Captain America: Civil War (2016) and The Avengers (2012) also received high scores (0.78), demonstrating their connection to significant nodes in the network.
+
+Key Insight: Different films are central for different reasons. The Avengers films are highly connected and influential, while Shutter Island acts as a critical bridge between different movie clusters. Films with high closeness centrality, such as X-Men: First Class, occupy more balanced positions within the network.
+
+The exact betweenness centrality of the top-ranked movie is: Shutter Island (2010): 144.4286
+
+
 
 4.  Calculate the average clustering coefficient for the movies
     network. *Hint: use `transitivity(g, type = "global")` to calculate
