@@ -189,28 +189,23 @@ The vast majority of movies have exactly 4 actors listed, which is likely a stru
     participations exist? `[1 point]`
 
 ```{r}
-# Filter to actors from top 50 most popular movies of 2010-2019 decade
+# Actors that participated on the top 50 most popular movies from the 2010-2019 decade
 top.movies.2010.2019 <- dt.movie.actor[year >= 2010 & year <= 2019, 
-    .N, by = list(movie, votes)
-    ][order(-votes)][1:50, movie]
+                                       .N, by = list(movie, votes)][order(-votes)][1:50, movie]
 
-actors.in.top <- dt.movie.actor[movie %in% top.movies.2010.2019, 
-                                unique(actor)]
+actors.in.top <- dt.movie.actor[movie %in% top.movies.2010.2019, unique(actor)]
 
-# Create bipartite graph with actors and movies
-edges <- dt.movie.actor[movie %in% top.movies.2010.2019, 
-                       list(actor, movie)]
+# Build graph
+edges <- dt.movie.actor[movie %in% top.movies.2010.2019, list(actor, movie)]
 
-# Create bipartite graph
 g.bipartite <- graph_from_data_frame(edges, directed = FALSE)
 
-# Mark bipartite attribute
 V(g.bipartite)$type <- !V(g.bipartite)$name %in% unique(edges$movie)
 
 
-# Summary and number of movie participations
+# Summary and number of participations
 summary(g.bipartite)
-ecount(g.bipartite) 
+ecount(g.bipartite)
 ```
 There are 200 movie participations.
 
@@ -227,34 +222,32 @@ There are 200 movie participations.
     -   Eigenvector centrality
 
 ```{r}
-# Create vertex list with type attribute
+ Create list with type attribute
 all.actors <- dt.movie.actor[movie %in% top.movies.2010.2019, list(name = unique(actor), type = TRUE)]
 all.movies <- dt.movie.actor[movie %in% top.movies.2010.2019, list(name = unique(movie), type = FALSE)]
 all.vertices <- rbind(all.actors, all.movies)
 
-# Build bipartite graph
+# Build graph
 g <- graph.data.frame(dt.movie.actor[movie %in% top.movies.2010.2019,  
-                                     list(movie, actor)
-                                     ], directed = FALSE, vertices = all.vertices)
+                                     list(movie, actor)], directed = FALSE, vertices = all.vertices)
 
-# Project to movie space 
 g.movies <- bipartite.projection(g)$proj1
+
 summary(g.movies)
 
 # Calculate degree centrality
 V(g.movies)$degree <- degree(g.movies)
 
-# Remove movies with no connections (degree == 0)
+# Remove movies with no connections
 g.movies.connected <- induced.subgraph(g.movies, vids = V(g.movies)[V(g.movies)$degree > 0])
 summary(g.movies.connected)
 
 # Calculate all centrality measures
-V(g.movies.connected)$degree      <- degree(g.movies.connected)
-V(g.movies.connected)$closeness   <- closeness(g.movies.connected)
-V(g.movies.connected)$betweenness <- betweenness(g.movies.connected)
-V(g.movies.connected)$evcent      <- evcent(g.movies.connected)$vector
+V(g.movies.connected)$degree        <- degree(g.movies.connected)
+V(g.movies.connected)$closeness     <- closeness(g.movies.connected)
+V(g.movies.connected)$betweenness   <- betweenness(g.movies.connected)
+V(g.movies.connected)$evcent        <- evcent(g.movies.connected)$vector
 
-# Convert to data.table for analysis
 dt.g.movies <- data.table(get.data.frame(g.movies.connected, "vertices"))
 head(dt.g.movies[order(-betweenness)], 10)
 ```
@@ -265,13 +258,13 @@ head(dt.g.movies[order(-betweenness)], 10)
     betweenness** to four decimal places. `[2 points]`
 
 ```{r}
-# Top 20 by each centrality measure
+# Top 20 by each measure
 head(dt.g.movies[order(-degree)], 20)
 head(dt.g.movies[order(-closeness)], 20)
 head(dt.g.movies[order(-betweenness)], 20)
 head(dt.g.movies[order(-evcent)], 20)
 
-# Report exact betweenness of top-ranked movie
+# Betweenness of top-ranked movie
 dt.g.movies[order(-betweenness)][1, .(name, betweenness = round(betweenness, 4))]
 ```
 Interpretation of Centrality Measures:
