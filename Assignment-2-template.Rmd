@@ -82,28 +82,37 @@ all the code you created/used in your answer.
     `[1 point]`
 
 ```{r}
-# <answer here>
+num_movies <- dt.movie.actor[, uniqueN(movie)]
+print(paste("Number of unique movies:", num_movies))
 ```
 
 2.  List the actors from the movie `"Fight Club (1999)"`. List
     the actors from the movie `"Se7en (1995)"`. `[1 point]`
 
 ```{r}
-# <answer here>
+actors_fight_club <- dt.movie.actor[movie == "Fight Club (1999)", unique(actor)]
+print(paste("Actors in Fight Club (1999):", paste(actors_fight_club, collapse = ", ")))
+
+actors_se7en <- dt.movie.actor[movie == "Se7en (1995)", unique(actor)]
+print(paste("Actors in Se7en (1995):", paste(actors_se7en, collapse = ", ")))
 ```
 
 3.  Which actors participated on both movies? Hint: The function
     `intersect` calculates the intersection of two sets. `[1 point]`
 
 ```{r}
-# <answer here>
+actor_both_movies <- intersect(actors_fight_club, actors_se7en)
+print(paste("Actor(s) in both movies:", paste(actor_both_movies, collapse = ", ")))
 ```
 
 4.  In which movies did Brad Pitt (b.1963) and George Clooney (b.1961) star together?
     `[1 point]`
 
 ```{r}
-# <answer here>
+movie_brad_pitt <- dt.movie.actor[actor == "Brad Pitt (b.1963)", unique(movie)]
+movie_george_clooney <- dt.movie.actor[actor == "George Clooney (b.1961)", unique(movie)]
+movies_both <- intersect(movie_brad_pitt, movie_george_clooney)
+print(paste("Movie(s) with Brad Pitt and George Clooney:", paste(movies_both, collapse = ", ")))
 ```
 
 5.  Create a table that shows the number of movies released per year.
@@ -116,7 +125,9 @@ all the code you created/used in your answer.
     in question 1. `[1 point]`
 
 ```{r}
-# <answer here>
+num_movies_per_year <- dt.movie.actor[, .(n_movies = uniqueN(movie)), by = year][order(year)][, csum_n_movies := cumsum(n_movies)]
+print("Number of movies per year:")
+print(num_movies_per_year)
 ```
 
 6.  Which actor/actress has starred in the most movies across all data?
@@ -126,7 +137,19 @@ all the code you created/used in your answer.
     `[1 point]`
 
 ```{r}
-# <answer here>
+top_actor_all <- dt.movie.actor[, .(n = uniqueN(movie)), by = actor][order(-n)][1]
+print(paste("Top actor overall:", top_actor_all$actor, "with", top_actor_all$n, "movies"))
+
+top_year_actor <- dt.movie.actor[year >= 2000, .(n = uniqueN(movie)), by = .(year, actor)][order(-n)][1]
+print(paste("Year with the most movies participations by a single actor/actress:", top_year_actor$year))
+print(paste("Top actor in", top_year_actor$year, ":", top_year_actor$actor, "with", top_year_actor$n, "movies"))
+
+#check to see if these actors have starred in the same movie at least once, this might be what they have in common
+movies_both_actors <- intersect(
+  dt.movie.actor[actor == top_actor_all$actor, unique(movie)],
+  dt.movie.actor[actor == top_year_actor$actor, unique(movie)]
+)
+print(paste("Movie(s) with both top actors:", if(length(movies_both_actors) > 0) paste(movies_both_actors, collapse = ", ") else "None"))
 ```
 
 7.  Consider only the 10% most popular movies (by votes) in the decade 2010-2019.
@@ -136,7 +159,23 @@ all the code you created/used in your answer.
     does the movie in percentile 90 have. `[1 point]`
 
 ```{r}
-# <answer here>
+dt_decade <- dt.movie.actor[year >= 2010 & year <= 2019]
+
+dt_unique_movies <- dt_decade[, .(votes = first(votes)), by = .(movie, year)]
+
+threshold <- quantile(dt_unique_movies$votes, 0.90, na.rm = TRUE)
+
+dt_popular <- dt_decade[votes >= threshold]
+
+# PART A
+top_10_actors <- dt_popular[, .(n_movies = uniqueN(movie)), by = actor][order(-n_movies)][1:10]
+print("Top 10 actors with the most popular movies (2010-2019):")
+print(top_10_actors)
+
+# PART B
+top_year_participation <- dt_popular[, .(n_parts = uniqueN(movie)), by = .(year, actor)][order(-n_parts)][1]
+print("Year and actor with the most participations:")
+print(top_year_participation)
 ```
 
 ## Questions (`ggplot2`) `[3 points]`

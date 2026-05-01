@@ -64,12 +64,12 @@ top_year_actor <- dt.movie.actor[year >= 2000, .(n = .N), by = .(year, actor)][o
 print(paste("Year with the most movies participations by a single actor/actress:", top_year_actor$year))
 print(paste("Top actor in", top_year_actor$year, ":", top_year_actor$actor))
 
-#check to see if these actors have starred in the same movie at least once
+#check to see if these actors have starred in the same movie at least once, this might be what they have in common
 movies_both_actors <- intersect(
   dt.movie.actor[actor == top_actor_all$actor, unique(movie)],
   dt.movie.actor[actor == top_year_actor$actor, unique(movie)]
 )
-print(paste("Movie(s) with both top actors:", paste(movies_both_actors, collapse = ", ")))
+print(paste("Movie(s) with both top actors:", if(length(movies_both_actors) > 0) paste(movies_both_actors, collapse = ", ") else "None"))
 ```
 
 ### Question 7
