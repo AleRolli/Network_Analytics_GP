@@ -49,18 +49,18 @@ library(ggplot2)        # Run once per session
 # Load data from file 20200120-imdb_movie_actor.csv (do not forget to
 # change your working directory to the folder containing the
 # 20200120-imdb_movie_actor.csv file)
-dt.movie.actor <- fread("20200120-imdb_movie_actor.csv") 
+dt.movie.actor <- fread("20200120-imdb_movie_actor.csv")
 
-# Count in how many movies each actor has participated and how many 
+# Count in how many movies each actor has participated and how many
 # principal actor each movie has
-dt.movie.actor[, n_movies := .N, by=actor]
-dt.movie.actor[, n_actors := .N, by=list(movie, year)]
+dt.movie.actor[, n_movies := .N, by = actor]
+dt.movie.actor[, n_actors := .N, by = list(movie, year)]
 
-# Remove entries in which actors have no name 
+# Remove entries in which actors have no name
 dt.movie.actor <- dt.movie.actor[!(actor == "")]
 
 # Save dt.movie.actor. Next time you can simply call the load function (below)
-save(dt.movie.actor, file="imdb_movie_actor.RData") 
+save(dt.movie.actor, file = "imdb_movie_actor.RData")
 ```
 
 Load the data that you prepared using the instructions below. As mentioned in the
@@ -69,7 +69,7 @@ comments, you can start from this line if you have previously saved these data.
 ```{r}
 # Load previously saved dt.movie.actor. You can
 # start in this line if you have previously saved these data.
-load("imdb_movie_actor.RData") 
+load("imdb_movie_actor.RData")
 ```
 
 ## Questions (`data.table`) `[7 points]`
@@ -82,37 +82,75 @@ all the code you created/used in your answer.
     `[1 point]`
 
 ```{r}
-num_movies <- dt.movie.actor[, uniqueN(movie)]
-print(paste("Number of unique movies:", num_movies))
+# Count the number of distinct movie titles across the entire dataset
+n.movies <- dt.movie.actor[, uniqueN(movie)]
+
+print(paste("Number of unique movies:", n.movies))
 ```
 
 2.  List the actors from the movie `"Fight Club (1999)"`. List
     the actors from the movie `"Se7en (1995)"`. `[1 point]`
 
 ```{r}
-actors_fight_club <- dt.movie.actor[movie == "Fight Club (1999)", unique(actor)]
-print(paste("Actors in Fight Club (1999):", paste(actors_fight_club, collapse = ", ")))
+# Filter rows where the movie is "Fight Club (1999)"
+# and extract unique actor names
+actors.fight.club <- dt.movie.actor[
+    movie == "Fight Club (1999)",
+    unique(actor)
+]
+print(
+    paste("Actors in Fight Club (1999):",
+    paste(actors.fight.club, collapse = ", "))
+)
 
-actors_se7en <- dt.movie.actor[movie == "Se7en (1995)", unique(actor)]
-print(paste("Actors in Se7en (1995):", paste(actors_se7en, collapse = ", ")))
+# Filter rows where the movie is "Se7en (1995)"
+# and extract unique actor names
+actors.se7en <- dt.movie.actor[
+    movie == "Se7en (1995)",
+    unique(actor)
+]
+print(
+    paste("Actors in Se7en (1995):",
+    paste(actors.se7en, collapse = ", "))
+)
 ```
 
 3.  Which actors participated on both movies? Hint: The function
     `intersect` calculates the intersection of two sets. `[1 point]`
 
 ```{r}
-actor_both_movies <- intersect(actors_fight_club, actors_se7en)
-print(paste("Actor(s) in both movies:", paste(actor_both_movies, collapse = ", ")))
+# Find actors that appear in both vectors
+# (set intersection of the two actor lists)
+actors.both.movies <- intersect(actors.fight.club, actors.se7en)
+print(
+    paste("Actor(s) in both movies:",
+    paste(actors.both.movies, collapse = ", "))
+)
 ```
 
 4.  In which movies did Brad Pitt (b.1963) and George Clooney (b.1961) star together?
     `[1 point]`
 
 ```{r}
-movie_brad_pitt <- dt.movie.actor[actor == "Brad Pitt (b.1963)", unique(movie)]
-movie_george_clooney <- dt.movie.actor[actor == "George Clooney (b.1961)", unique(movie)]
-movies_both <- intersect(movie_brad_pitt, movie_george_clooney)
-print(paste("Movie(s) with Brad Pitt and George Clooney:", paste(movies_both, collapse = ", ")))
+# Filter rows for Brad Pitt
+# and retrieve the unique movie titles he appeared in
+movies.brad.pitt <- dt.movie.actor[
+    actor == "Brad Pitt (b.1963)",
+    unique(movie)
+]
+# Filter rows for George Clooney 
+# and retrieve the unique movie titles he appeared in
+movies.george.clooney <- dt.movie.actor[
+    actor == "George Clooney (b.1961)",
+    unique(movie)
+]
+# Find movies that both actors appeared in
+# (set intersection of the two movie lists)
+movies.both <- intersect(movies.brad.pitt, movies.george.clooney)
+print(
+    paste("Movie(s) with Brad Pitt and George Clooney:",
+    paste(movies.both, collapse = ", "))
+)
 ```
 
 5.  Create a table that shows the number of movies released per year.
@@ -125,9 +163,29 @@ print(paste("Movie(s) with Brad Pitt and George Clooney:", paste(movies_both, co
     in question 1. `[1 point]`
 
 ```{r}
-num_movies_per_year <- dt.movie.actor[, .(n_movies = uniqueN(movie)), by = year][order(year)][, csum_n_movies := cumsum(n_movies)]
+# Count the number of unique movies released in each year
+dt.movies.per.year <- dt.movie.actor[
+  ,
+  list(n_movies = uniqueN(movie)),
+  by = year
+]
+
+# Sort the table in ascending chronological order
+dt.movies.per.year <- dt.movies.per.year[order(year)]
+# Add a cumulative sum column tracking the total movies
+# released up to and including each year
+dt.movies.per.year[, csum_n_movies := cumsum(n_movies)]
+
+# Verify the final cumulative total equals
+# the overall movie count computed in Q1
+v.same.total <- dt.movies.per.year[.N, csum_n_movies] == n.movies
+
 print("Number of movies per year:")
-print(num_movies_per_year)
+print(dt.movies.per.year)
+print(
+    paste("Is the cumulative sum equal to the total number of movies?",
+    v.same.total)
+)
 ```
 
 6.  Which actor/actress has starred in the most movies across all data?
@@ -137,19 +195,34 @@ print(num_movies_per_year)
     `[1 point]`
 
 ```{r}
-top_actor_all <- dt.movie.actor[, .(n = uniqueN(movie)), by = actor][order(-n)][1]
-print(paste("Top actor overall:", top_actor_all$actor, "with", top_actor_all$n, "movies"))
+# Extract one row per actor retaining the precomputed
+# total movie count (n_movies)
+dt.actor.total <- unique(dt.movie.actor[, list(actor, n_movies)])
 
-top_year_actor <- dt.movie.actor[year >= 2000, .(n = uniqueN(movie)), by = .(year, actor)][order(-n)][1]
-print(paste("Year with the most movies participations by a single actor/actress:", top_year_actor$year))
-print(paste("Top actor in", top_year_actor$year, ":", top_year_actor$actor, "with", top_year_actor$n, "movies"))
+# Keep only the actor(s) with the highest overall movie count
+# sorted alphabetically
+dt.actor.most.all <- dt.actor.total[
+  n_movies == max(n_movies)
+][order(actor)]
 
-#check to see if these actors have starred in the same movie at least once, this might be what they have in common
-movies_both_actors <- intersect(
-  dt.movie.actor[actor == top_actor_all$actor, unique(movie)],
-  dt.movie.actor[actor == top_year_actor$actor, unique(movie)]
-)
-print(paste("Movie(s) with both top actors:", if(length(movies_both_actors) > 0) paste(movies_both_actors, collapse = ", ") else "None"))
+# Count each actor's participations per year
+# restricted to 2000 and later
+dt.actor.year.2000 <- dt.movie.actor[
+  year >= 2000,
+  list(n_participations = .N),
+  by = list(year, actor)
+]
+
+# Filter to the year-actor pair(s) with the single highest participation count
+# sorted by year then actor
+dt.actor.most.year.2000 <- dt.actor.year.2000[
+  n_participations == max(n_participations)
+][order(year, actor)]
+
+print("Actor who starred in the most movies overall:")
+print(dt.actor.most.all)
+print("Actor who starred in the most movies after (and including) 2000:")
+print(dt.actor.most.year.2000)
 ```
 
 7.  Consider only the 10% most popular movies (by votes) in the decade 2010-2019.
@@ -159,23 +232,59 @@ print(paste("Movie(s) with both top actors:", if(length(movies_both_actors) > 0)
     does the movie in percentile 90 have. `[1 point]`
 
 ```{r}
-dt_decade <- dt.movie.actor[year >= 2010 & year <= 2019]
+# Restrict the full dataset to movies released within the 2010-2019 decade
+dt.decade <- dt.movie.actor[year >= 2010 & year <= 2019]
 
-dt_unique_movies <- dt_decade[, .(votes = first(votes)), by = .(movie, year)]
+# Get one row per movie retaining year
+# and vote count (removes per-actor duplicates)
+dt.movies.decade <- unique(dt.decade[, list(movie, year, votes)])
 
-threshold <- quantile(dt_unique_movies$votes, 0.90, na.rm = TRUE)
+# Compute the 90th percentile vote threshold
+# i.e. the cutoff for the top 10% most voted movies
+n.votes.p90 <- quantile(
+  dt.movies.decade[, votes],
+  probs = 0.90,
+  na.rm = TRUE
+)
 
-dt_popular <- dt_decade[votes >= threshold]
+# Keep only movies at or above the 90th percentile vote count
+dt.popular.movies <- dt.movies.decade[votes >= n.votes.p90]
 
-# PART A
-top_10_actors <- dt_popular[, .(n_movies = uniqueN(movie)), by = actor][order(-n_movies)][1:10]
+# Inner-join the decade actor rows with the popular movies list
+# keeping only matching rows
+dt.decade.popular <- dt.decade[
+  dt.popular.movies,
+  on = list(movie, year, votes),
+  nomatch = 0
+]
+
+# Count distinct popular movies per actor
+# then sort by most movies descending, then alphabetically
+dt.top.actors.decade <- dt.decade.popular[
+  ,
+  list(n_movies = uniqueN(movie)),
+  by = actor
+][order(-n_movies, actor)]
+
+# Trim the ranked list to the top 10 actors only
+dt.top.actors.decade <- head(dt.top.actors.decade, 10)
+
+# Count each actor's total appearances per year within the popular movies subset
+dt.actor.year.decade <- dt.decade.popular[
+  ,
+  list(n_participations = .N),
+  by = list(year, actor)
+]
+
+# Filter to the year-actor pair(s) with the highest single-year participation count
+dt.actor.peak.year.decade <- dt.actor.year.decade[
+  n_participations == max(n_participations)
+][order(year, actor)]
+
 print("Top 10 actors with the most popular movies (2010-2019):")
-print(top_10_actors)
-
-# PART B
-top_year_participation <- dt_popular[, .(n_parts = uniqueN(movie)), by = .(year, actor)][order(-n_parts)][1]
+print(dt.top.actors.decade)
 print("Year and actor with the most participations:")
-print(top_year_participation)
+print(dt.actor.peak.year.decade)
 ```
 
 ## Questions (`ggplot2`) `[3 points]`
@@ -261,7 +370,7 @@ There are 200 movie participations.
     -   Eigenvector centrality
 
 ```{r}
- Create list with type attribute
+ # Create list with type attribute
 all.actors <- dt.movie.actor[movie %in% top.movies.2010.2019, list(name = unique(actor), type = TRUE)]
 all.movies <- dt.movie.actor[movie %in% top.movies.2010.2019, list(name = unique(movie), type = FALSE)]
 all.vertices <- rbind(all.actors, all.movies)
