@@ -147,8 +147,10 @@ There are 200 movie participations.
 ### Question 2
 ```{r}
 # Create list with type attribute
-all.actors <- dt.movie.actor[movie %in% top.movies.2010.2019, list(name = unique(actor), type = TRUE)]
-all.movies <- dt.movie.actor[movie %in% top.movies.2010.2019, list(name = unique(movie), type = FALSE)]
+all.actors <- dt.movie.actor[movie %in% top.movies.2010.2019, 
+                             list(name = unique(actor), type = TRUE)]
+all.movies <- dt.movie.actor[movie %in% top.movies.2010.2019, 
+                             list(name = unique(movie), type = FALSE)]
 all.vertices <- rbind(all.actors, all.movies)
 
 # Build graph
@@ -163,7 +165,8 @@ summary(g.movies)
 V(g.movies)$degree <- degree(g.movies)
 
 # Remove movies with no connections
-g.movies.connected <- induced.subgraph(g.movies, vids = V(g.movies)[V(g.movies)$degree > 0])
+g.movies.connected <- induced.subgraph(g.movies, 
+                                       vids = V(g.movies)[V(g.movies)$degree > 0])
 summary(g.movies.connected)
 
 # Calculate all centrality measures
