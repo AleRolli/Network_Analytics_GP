@@ -276,7 +276,8 @@ dt.actor.year.decade <- dt.decade.popular[
   by = list(year, actor)
 ]
 
-# Filter to the year-actor pair(s) with the highest single-year participation count
+# Filter to the year-actor pair(s) with the
+# highest single-year participation count
 dt.actor.peak.year.decade <- dt.actor.year.decade[
   n_participations == max(n_participations)
 ][order(year, actor)]
