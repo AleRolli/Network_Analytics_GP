@@ -442,8 +442,11 @@ The exact betweenness centrality of the top-ranked movie is: Shutter Island (201
     `[1 point]`
 
 ```{r}
-# <answer here>
+avg.clustering <- transitivity(g.movies.connected, type = "global")
+
+print(paste("Average clustering coefficient:", round(avg.clustering, 4)))
 ```
+The average clustering coefficient for the movies network is 0.6327. This value indicates a high degree of connectivity among movies through shared actors. However, it is slightly lower than the typical range of 0.75-0.85 usually observed in such networks. This deviation might be due to the specific selection criteria, as focusing only on the top 50 most popular movies limits the presence of smaller, tightly knit clusters that might be found in a broader dataset.
 
 5.  Choose one movie you like and plot the movie, their direct
     neighbors and the links among them. What is the clustering
@@ -456,8 +459,60 @@ The exact betweenness centrality of the top-ranked movie is: Shutter Island (201
     `[2 points]`
 
 ```{r}
-# <answer here>
+# Define the target movie
+my.movie <- "The Avengers (2012)"
+print(paste("Selected Movie:", my.movie))
+
+# Extract the ego graph (neighborhood) for the selected movie
+g.movie.neighborhood <- make_ego_graph(
+  g.movies.connected, 
+  order = 1, 
+  nodes = my.movie
+)[[1]]
+
+# Plot the neighborhood network
+plot(
+  g.movie.neighborhood, 
+  vertex.size = ifelse(V(g.movie.neighborhood)$name == my.movie, 15, 8),
+  vertex.color = ifelse(V(g.movie.neighborhood)$name == my.movie, "tomato", "lightblue"),
+  vertex.label.cex = 0.7,
+  vertex.label.color = "black",
+  main = paste("Neighborhood of", my.movie)
+)
+
+# Calculate local clustering coefficient
+local.cc <- transitivity(g.movies.connected, type = "local", vids = my.movie)
+print(paste("Local Clustering Coefficient:", round(local.cc, 4)))
+
+# Compute ratio to network average (using the variable from Question 4)
+cc.ratio <- local.cc / avg.clustering
+print(paste("Ratio (Local CC / Network Average):", round(cc.ratio, 2)))
+
+# Filter actors belonging to neighbors but excluding target actors
+target.actors <- dt.movie.actor[movie == my.movie, actor]
+neighbor.movies <- V(g.movie.neighborhood)$name[V(g.movie.neighborhood)$name != my.movie]
+
+neighbor.actors <- dt.movie.actor[
+  movie %in% neighbor.movies & !(actor %in% target.actors), 
+  actor
+]
+
+# Find the most frequent actor(s) handling potential ties
+actor.freqs <- sort(table(neighbor.actors), decreasing = TRUE)
+max.freq <- actor.freqs[1]
+top.neighbor.actors <- names(actor.freqs[actor.freqs == max.freq])
+
+print(paste(
+  "Top actor(s) in neighborhood (but not in movie):", 
+  paste(top.neighbor.actors, collapse = ", "), 
+  "with", 
+  max.freq, 
+  "participations."
+))
 ```
+We chose to analyze the movie The Avengers (2012). Its local clustering coefficient is 0.8571. The ratio of this movie's clustering coefficient to the network average (0.6327) is 1.35, indicating that The Avengers is situated in a particularly dense neighborhood compared to the overall network.
+
+After analyzing its direct neighborhood, the actor with the most participations among these neighboring movies, but not having participated in the movie itself (according to the dataset's specific entries), is Chris Hemsworth (b.1983) with 3 participations.
 
 6.  Plot the degree distribution of the movies. How do you compare it
     with the degree distribution of a random graph with the same number
@@ -470,5 +525,65 @@ The exact betweenness centrality of the top-ranked movie is: Shutter Island (201
     direct connections.* `[2 points]`
 
 ```{r}
-# <answer here>
+# Calculate empirical degree distribution
+emp.deg.dist <- degree_distribution(g.movies.connected)
+
+# Generate an illustrative random graph (Erdos-Renyi)
+n.v <- vcount(g.movies.connected)
+n.e <- ecount(g.movies.connected)
+g.random <- erdos.renyi.game(n.v, n.e, type = "gnm")
+
+# Calculate random graph degree distribution
+rand.deg.dist <- degree_distribution(g.random)
+
+# Plot distributions
+max.deg <- max(length(emp.deg.dist), length(rand.deg.dist)) - 1
+
+plot(
+  0:(length(emp.deg.dist) - 1), 
+  emp.deg.dist, 
+  type = "b", 
+  col = "blue", 
+  pch = 16, 
+  xlab = "Degree", 
+  ylab = "Frequency / Probability", 
+  main = "Degree Distribution: Movies vs Random Graph",
+  xlim = c(0, max.deg)
+)
+
+points(
+  0:(length(rand.deg.dist) - 1), 
+  rand.deg.dist, 
+  type = "b", 
+  col = "red", 
+  pch = 17
+)
+
+legend(
+  "topright", 
+  legend = c("Movies Network", "Random Graph"), 
+  col = c("blue", "red"), 
+  pch = c(16, 17), 
+  lty = 1
+)
+
+# Identify bridge movie: high betweenness but not top degree
+top5.betw <- head(dt.g.movies[order(-betweenness)]$name, 5)
+top10.degree <- head(dt.g.movies[order(-degree)]$name, 10)
+
+# Find the anomaly 
+bridge.movie.list <- setdiff(top5.betw, top10.degree)
+
+if(length(bridge.movie.list) > 0) {
+  bridge.movie <- bridge.movie.list[1]
+  bridge.betweenness <- dt.g.movies[name == bridge.movie, betweenness]
+  
+  print(paste("Bridge Movie:", bridge.movie))
+  print(paste("Exact Betweenness:", round(bridge.betweenness, 4)))
+} else {
+  print("No movie in the top 5 betweenness is outside the top 10 degree.")
+}
 ```
+Comparing the degree distribution of our movies network with an illustrative Erdős-Rényi random graph reveals structural differences. While the random graph's degree distribution is bell-shaped and concentrated around its mean, our network shows a more right-skewed distribution. This suggests a tendency toward a "hub" structure, which is common in the film industry due to major franchises, although this effect is certainly amplified by our specific bipartite projection of only the top 50 movies.
+
+A notable movie in this network is Now You See Me (2013). It ranks in the top 5 by betweenness centrality but falls outside the top 10 by degree. Its exact betweenness is 84.4286. This movie serves as a significant bridge because it acts as the shortest path connecting distinct, otherwise isolated clusters (such as different actor circles or genres), despite having relatively few direct connections itself.
