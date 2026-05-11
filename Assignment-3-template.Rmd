@@ -275,8 +275,22 @@ When p is low and q is high, the inflection point shifts earlier and the curve r
     `s$times[which.max(s$NI)]`.* `[2 points]`
 
 ```{r}
-# <answer here>
+set.seed(42)
+
+beta <- 0.1
+gamma <- 0.01
+
+sir_runs <- sir(g, beta = beta, gamma = gamma, no.sim = 50)
+
+final_sizes <- sapply(sir_runs, function(s) tail(s$NR, 1) / vcount(g))
+peak_times <- sapply(sir_runs, function(s) s$times[which.max(s$NI)])
+
+cat("(a) Mean               :", mean(final_sizes), "\n")
+cat("(a) Standard Deviation :", sd(final_sizes), "\n")
+cat("(b) Mean time to peak  :", mean(peak_times), "\n")
 ```
+Across 50 simulations, the mean final size was 0.93 (SD = 0.19), indicating that, on average, 93% of airports were infected by the end of the simulation. This is notably higher than the suggested range of 0.55-0.70 during office hours and likely reflects the airline network's highly connected hub structure. The mean time to peak infection was approximately 22.5 time steps.
+
 
 3.  *(Moderate)* **Heavy tails and the epidemic threshold.** The
     heterogeneous mean-field theory of SIR predicts an epidemic
@@ -303,12 +317,30 @@ When p is low and q is high, the inflection point shifts earlier and the curve r
     `mean(k^2)` give the two moments.* `[3 points]`
 
 ```{r}
-# <answer here>
+# (a)
+k <- degree(g)
+k_mean <- mean(k)
+k2_mean <- mean(k^2)
+tau_c <- k_mean / (k2_mean - k_mean)
+
+cat("<k>  :", k_mean, "\n")
+cat("<k^2> :", k2_mean, "\n")
+cat("tau_c (airline) :", tau_c, "\n")
 ```
 
+(a) The airline network has $\langle k \rangle$ = 11.81 and $\langle k^2 \rangle$ = 770.41 with an epidemic threshold of $\tau_c$ = 0.0156. Since $\beta/\gamma$ = 10 far exceeds the epidemic threshold, the simulated epidemic spreading to ~93% of nodes is expected.
+
+
 ```{r}
-# <answer here>
+# (b)
+k2_mean_ER <- k_mean^2 + k_mean
+tau_c_ER <- k_mean / (k2_mean_ER - k_mean)
+
+cat("tau_c (ER)      :", tau_c_ER, "\n")
+cat("Ratio tau_c (airline) / tau_c (ER) :", round(tau_c / tau_c_ER, 2), "\n")
 ```
+(b) A matched Erdős–Rényi graph results in a value of $\tau_c$ of 0.085, giving a ratio of airline $\tau_c$ to ER $\tau_c$ of 0.18. This indicates that the epidemic threshold of the airline network is only 18% of what it would be in a random network of the same size and density. Diseases or information require far less contagiousness to trigger a global outbreak in the real network. This is because the airline network has a heavy-tailed degree distribution. A small number of major hubs, such as Atlanta or Frankfurt, inflate $\langle k^2 \rangle$ far above $\langle k \rangle ^2$, causing a decrease in $\tau_c$ and making the network far more vulnerable to spreading than its density alone would suggest.
+
 
 ---
 
