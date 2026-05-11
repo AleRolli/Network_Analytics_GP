@@ -1,0 +1,449 @@
+---
+title: "Network Analytics (2623) — Group Assignment 3"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    code_folding: show
+---
+
+# INSTRUCTIONS
+
+-   This is a group assignment.
+-   Submit your answer digitally as two files through Moodle:
+    -   An R markdown file (extension **Rmd**). Use the template provided
+        to you and provide your answers (both code and text) below each
+        question.
+    -   An **HTML** file "knitted" by RStudio including all the results and
+        plots.
+-   Follow the Style Guide (available on Moodle). You can be
+    penalized on up to 20% in each question for which you do not follow
+    the Style Guide.
+-   Questions regarding the assignment should be posted <span class="underline">exclusively</span> on
+    the respective discussion forum on Moodle.
+-   **Deadline:** Wednesday, 20 May 2026, 23:59 (Lisbon time)
+
+<span class="underline">**Warning:**</span> The detection of <span class="underline">any form of plagiarism</span> in your work
+means the assignment will be graded with <span class="underline">ZERO points</span>.
+
+---
+
+# The Global Airline Network
+
+Airline route networks shape how people, goods, and — relevant to this
+assignment — diseases and information move around the world. Some
+airports serve as critical hubs connecting entire regions, while others
+operate at the periphery with only a handful of routes. Understanding
+diffusion on this network has direct implications for public health,
+marketing, and strategic airline planning.
+
+In this assignment we will analyze diffusion processes, seeding
+strategies, and link prediction on the global airline route network
+using data from [OpenFlights.org](https://openflights.org/data).
+
+## Data dictionaries
+
+### `airports.dat`
+
+| Column | Field        | Type    | Description                              |
+|--------|--------------|---------|------------------------------------------|
+| 1      | `airport_id` | integer | OpenFlights airport ID                   |
+| 2      | `name`       | string  | Airport name                             |
+| 3      | `city`       | string  | City                                     |
+| 4      | `country`    | string  | Country                                  |
+| 5      | `iata`       | string  | 3-letter IATA code (e.g. "LIS")          |
+| 6      | `icao`       | string  | 4-letter ICAO code (e.g. "LPPT")         |
+| 7      | `latitude`   | numeric | Latitude in decimal degrees              |
+| 8      | `longitude`  | numeric | Longitude in decimal degrees             |
+| 9      | `altitude`   | integer | Altitude in meters                       |
+| 10     | `utc_offset` | numeric | UTC offset in hours                      |
+| 11     | `dst`        | string  | Daylight Saving Time type                |
+| 12     | `timezone`   | string  | Timezone (tz database format)            |
+| 13     | `type`       | string  | Type (airport, station, port, unknown)   |
+| 14     | `source`     | string  | Data source                              |
+
+### `routes.dat`
+
+| Column | Field               | Type    | Description                            |
+|--------|---------------------|---------|----------------------------------------|
+| 1      | `airline`           | string  | Airline IATA/ICAO code                 |
+| 2      | `airline_id`        | integer | Airline OpenFlights identifier         |
+| 3      | `source_airport`    | string  | Source airport IATA/ICAO code          |
+| 4      | `source_airport_id` | integer | Source airport OpenFlights identifier  |
+| 5      | `dest_airport`      | string  | Destination airport IATA/ICAO code     |
+| 6      | `dest_airport_id`   | integer | Destination airport OpenFlights ID     |
+| 7      | `codeshare`         | string  | "Y" if codeshare, empty otherwise      |
+| 8      | `stops`             | integer | Number of stops (0 = direct)           |
+| 9      | `equipment`         | string  | Aircraft types                         |
+
+**Note:** Some fields contain `\N` indicating missing values.
+
+---
+
+## Setup and data loading
+
+Place `airports.dat` and `routes.dat` in the **same folder** as this
+`.Rmd` file. When knitting, R automatically looks in that folder — no
+`setwd()` needed.
+
+```{r setup, message=FALSE, warning=FALSE}
+library(data.table)
+library(ggplot2)
+library(igraph)
+
+# ---- airports ----------------------------------------------------------------
+dt.airports <- fread("airports.dat", header = FALSE, na.strings = "\\N")
+colnames(dt.airports) <- c("airport_id", "name", "city", "country", "iata", "icao",
+                           "latitude", "longitude", "altitude", "utc_offset",
+                           "dst", "timezone", "type", "source")
+dt.airports <- dt.airports[type == "airport"]
+
+# ---- routes ------------------------------------------------------------------
+dt.routes <- fread("routes.dat", header = FALSE, na.strings = "\\N")
+colnames(dt.routes) <- c("airline", "airline_id", "source_airport", "source_airport_id",
+                         "dest_airport", "dest_airport_id", "codeshare", "stops", "equipment")
+dt.routes[, source_airport_id := as.numeric(source_airport_id)]
+dt.routes[, dest_airport_id   := as.numeric(dest_airport_id)]
+dt.routes <- dt.routes[!is.na(source_airport_id) & !is.na(dest_airport_id)]
+```
+
+You will likely also need (install with `install.packages()` if missing):
+
+```{r extra-packages, eval=FALSE}
+# install.packages("visNetwork")
+```
+
+## Helper: SIR simulator with fixed seeds
+
+`igraph::sir()` is convenient but chooses one random seed internally,
+so it cannot be used for question C.1, which requires comparing fixed
+seed sets. Use the helper below instead. It is a discrete-time SIR:
+each step, every infected node infects each susceptible neighbor
+independently with probability $\beta$, and recovers with probability
+$\gamma$. It returns the final epidemic size as a fraction of $N$.
+
+```{r sir-helper}
+simulate_sir <- function(g, seeds, beta, gamma, max_steps = 500) {
+  n     <- vcount(g)
+  state <- rep("S", n)
+  state[seeds] <- "I"
+  adj   <- as_adj_list(g)
+  for (t in seq_len(max_steps)) {
+    inf <- which(state == "I")
+    if (length(inf) == 0) break
+    sus <- which(state == "S")
+    n_inf_nb <- if (length(sus) > 0)
+      vapply(adj[sus], function(nb) sum(state[nb] == "I"), integer(1))
+    else integer(0)
+    new_inf <- sus[runif(length(sus)) < (1 - (1 - beta)^n_inf_nb)]
+    new_rec <- inf[runif(length(inf)) < gamma]
+    state[new_inf] <- "I"
+    state[new_rec] <- "R"
+  }
+  mean(state != "S")  # fraction of nodes that were ever infected
+}
+```
+
+---
+
+# Questions
+
+## Part A: Network Setup `[2 points]`
+
+1.  *(Easy)* Build the <span class="underline">undirected</span> airline graph from the routes data.
+    Some routes in `dt.routes` reference `airport_id`s that are not in
+    `dt.airports` — drop those routes first. Extract the giant
+    connected component. Attach `country`, `latitude`, and `longitude`
+    attributes to each node from `dt.airports`. *Hint:
+    `graph_from_data_frame()` accepts a `vertices=` argument that
+    attaches per-node attributes during graph construction; use
+    `simplify()` to remove self-loops and parallel edges, `components()`
+    to find each node's membership, and `induced_subgraph()` to extract
+    the giant component.* `[1 point]`
+
+```{r}
+# Drop routes referencing airports not in the airports table
+valid.ids <- dt.airports$airport_id
+dt.routes.clean <- dt.routes[
+  source_airport_id %in% valid.ids & dest_airport_id %in% valid.ids]
+
+# Select only the columns needed as node attributes
+dt.vertices <- dt.airports[, .(airport_id, name, country, latitude, longitude)]
+
+# Build undirected graph with node attributes attached at construction time
+g.raw <- graph_from_data_frame(
+  d = dt.routes.clean[, .(source_airport_id, dest_airport_id)],
+  directed = FALSE,
+  vertices = dt.vertices)
+
+# Remove self-loops (airport to itself) and duplicate edges
+g.simple <- simplify(g.raw)
+
+# Identify and extract the giant connected component
+comp <- components(g.simple)
+giant.id <- which.max(comp$csize)
+g <- induced_subgraph(g.simple, which(comp$membership == giant.id))
+```
+
+2.  *(Easy)* Report the number of nodes, the number of edges, the
+    density, and the mean degree of the giant component. Two sentences
+    are enough. *Hint: `vcount(g)`, `ecount(g)`, `edge_density(g)`,
+    `mean(degree(g))`.* `[1 point]`
+
+```{r}
+# Report the four basic structural properties of the giant component
+cat("Nodes      :", vcount(g), "\n")
+cat("Edges      :", ecount(g), "\n")
+cat("Density    :", round(edge_density(g), 6), "\n")
+cat("Mean degree:", round(mean(degree(g)), 4), "\n")
+```
+The giant component contains 3,188 airports and 18,833 undirected routes, with a density of 0.003707 and a mean degree of 11.81, indicating a sparse network where a small number of major hubs account for most connections.
+
+---
+
+## Part B: Diffusion `[7 points]`
+
+1.  *(Easy)* **Bass Model.** A low-cost carrier opens a new long-haul
+    route. Model passenger uptake over the first 100 weeks using the
+    Bass diffusion model
+    $$F(t) = F(t-1) + p \cdot (1 - F(t-1)) + q \cdot (1 - F(t-1)) \cdot F(t-1)$$
+    where the innovation rate $p$ captures travelers who learn of the
+    route through advertising, and the imitation rate $q$ captures
+    word-of-mouth from people who have already flown it. Simulate for
+    100 time steps using $(p, q) \in \{(0.01, 0.10), (0.03, 0.30), (0.10, 0.10), (0.01, 0.40)\}$.
+    Using `ggplot2`, plot the four cumulative adoption curves on the
+    same figure (one line per parameter pair, with a legend). Describe
+    in 2--3 sentences how the inflection point of the curve shifts as
+    $p$ and $q$ change. Which parameter pair would best describe a route
+    that the airline is reluctant to advertise but that gains traction
+    through traveler reviews? *Hint: implement the Bass model as a `for`
+    loop over 100 timesteps; to plot four curves on one figure, build a
+    long-format data.frame with one row per (param_pair, t) and use
+    `aes(color = pair)` in `ggplot()`.* `[2 points]`
+
+```{r}
+# Define the four (p, q) parameter pairs to simulate
+params <- list(
+  c(p = 0.01, q = 0.10),
+  c(p = 0.03, q = 0.30),
+  c(p = 0.10, q = 0.10),
+  c(p = 0.01, q = 0.40))
+
+# Simulate Bass model for each pair and stack results into long format
+dt.bass <- rbindlist(lapply(params, function(pq) {
+  p <- pq["p"]
+  q <- pq["q"]
+  f <- numeric(100)
+  f[1] <- p  # at t=1: no prior adopters, so imitation term is zero
+  for (t in 2:100) {
+    f[t] <- f[t - 1] +
+      p * (1 - f[t - 1]) +        # innovation: advertising-driven adoption
+      q * (1 - f[t - 1]) * f[t - 1]  # imitation: word-of-mouth adoption
+  }
+  data.table(
+    t = 1:100,
+    f = f,
+    pair = paste0("p=", p, ", q=", q)
+  )
+}))
+
+# Plot all four cumulative adoption curves on one figure
+ggplot(dt.bass, aes(x = t, y = f, color = pair)) +
+  geom_line(linewidth = 0.9) +
+  labs(
+    title = "Bass Diffusion Model: Cumulative Adoption over 100 Weeks",
+    x = "Week",
+    y = "Cumulative Adoption F(t)",
+    color = "Parameter pair") +
+  theme_minimal()
+```
+When p is low and q is high, the inflection point shifts earlier and the curve rises more steeply, driven by word-of-mouth rather than advertising. A higher p raises early adoption but flattens the eventual slope, while low values of both parameters delay take-off significantly. The pair (p=0.01, q=0.40) best describes a route the airline is reluctant to advertise but that gains traction through traveller reviews, as minimal advertising spend is offset by strong imitation effects that eventually drive rapid uptake.
+
+2.  *(Moderate)* **SIR on the airline network.** Run an SIR process on
+    the giant component using `igraph::sir()` with `beta = 0.1, gamma = 0.01`.
+    Run the simulation 50 times, each starting from a single uniformly
+    random seed. Report (a) the mean and standard deviation of the final
+    epidemic size (fraction of nodes ever infected), and (b) the mean
+    time to peak infection. <span class="underline">Note: preliminary runs in office hours
+    suggested final epidemic sizes around 0.55--0.70 for these
+    parameters; report your actual finding and comment if it differs.</span>
+    *Hint: `igraph::sir()` returns a list of 50 objects, each with
+    fields `$times, $NS, $NI, $NR`. To collect the final epidemic size
+    across all 50 runs into a vector, use:* `final_sizes <- sapply(sir_runs, function(s) tail(s$NR, 1) / vcount(g))`. *Then `mean(final_sizes)` and `sd(final_sizes)` give what
+    you need. Adapt the same `sapply()` pattern for time-to-peak using
+    `s$times[which.max(s$NI)]`.* `[2 points]`
+
+```{r}
+# <answer here>
+```
+
+3.  *(Moderate)* **Heavy tails and the epidemic threshold.** The
+    heterogeneous mean-field theory of SIR predicts an epidemic
+    threshold $\tau_c = \langle k \rangle / (\langle k^2 \rangle - \langle k \rangle)$:
+    for $\beta/\gamma$ below $\tau_c$, outbreaks die out; above it,
+    they spread. Heavy-tailed degree distributions (a small minority
+    of very-high-degree hubs) drive $\langle k^2 \rangle$ much higher
+    than $\langle k \rangle^2$, which lowers $\tau_c$ and makes
+    spreading easier.
+
+    a)  Compute $\langle k \rangle$, $\langle k^2 \rangle$, and $\tau_c$
+        for the airline network. Report all three values.
+    b)  Now suppose the network were Erdős–Rényi with the same $n$ and
+        $m$. For an ER graph, $\langle k^2 \rangle \approx \langle k \rangle^2 + \langle k \rangle$
+        (you do <span class="underline">not</span> need to simulate this --- use the formula
+        directly with the same $\langle k \rangle$ as the airline
+        graph). Compute the theoretical $\tau_c$ for this matched ER
+        graph. Report the <span class="underline">ratio of airline $\tau_c$ to ER $\tau_c$,
+        to two decimal places</span>. In 2--3 sentences, explain what this
+        ratio means for how diseases or information spread on real
+        networks compared to random networks of the same density.
+
+    *Hint: `degree(g)` returns the degree vector; `mean(k)` and
+    `mean(k^2)` give the two moments.* `[3 points]`
+
+```{r}
+# <answer here>
+```
+
+```{r}
+# <answer here>
+```
+
+---
+
+## Part C: Seeding Strategies `[5 points]`
+
+1.  *(Moderate)* **Seeding strategies.** Imagine you are choosing 3
+    airports to vaccinate (or 3 seed nodes for a viral campaign) on
+    the airline network. Compare three seeding strategies. Use the
+    helper function `simulate_sir(g, seeds, beta, gamma)` provided in
+    the template setup, with the same $(\beta, \gamma)$ as B.2.
+
+    a)  For each of three strategies — **random-3** (three airports
+        drawn uniformly at random), **top-3-by-degree** (the three
+        airports with the highest degree), and **top-3-by-betweenness**
+        (the three airports with the highest betweenness) — run $\geq 20$
+        Monte Carlo simulations using `simulate_sir()`. Report mean
+        final size and standard deviation for each strategy in a table.
+        Which strategy gives the largest mean final size, and by how
+        much (percent) does it improve over random-3?
+    b)  Compare the airports chosen by the top-3-by-degree and
+        top-3-by-betweenness strategies. Are they the same airports,
+        partially overlapping, or completely different? In 2--3
+        sentences, explain what this overlap (or lack thereof) tells
+        you about the structure of the airline network.
+
+    *Hint: `order(-degree(g))[1:3]` gives the three highest-degree node
+    indices; `sample(V(g), 3)` gives a random triple. Convert indices
+    to airport names with `V(g)$name[seeds]`. To run 20 simulations
+    with a fixed seed set and collect the final sizes:*
+    `final_sizes <- replicate(20, simulate_sir(g, seeds, 0.1, 0.01))`.
+    *Then `mean(final_sizes)` and `sd(final_sizes)` give the row of
+    your comparison table. Note: `betweenness(g)` on this graph takes
+    ~30 seconds.* `[3 points]`
+
+```{r}
+# <answer here>
+```
+
+2.  *(Moderate)* **Quarantine.** Remove the top 20 airports by
+    betweenness centrality from the network. Run SIR with the same
+    parameters as B.2 (50 runs, single random seed each, on the
+    remaining network). Report the new mean final epidemic size and
+    compute the percentage reduction relative to B.2. In 2--3 sentences,
+    connect this result to public health policy: when does removing
+    high-betweenness hubs work, and when does it fail? *Hint:
+    `delete_vertices()` returns a smaller graph; you can re-use the
+    same `igraph::sir()` call from B.2 on it.* `[2 points]`
+
+```{r}
+# <answer here>
+```
+
+---
+
+## Part D: Link Prediction `[3 points]`
+
+1.  *(Easy)* For the giant component, sample 1000 currently non-existent
+    airport pairs (i.e., pairs $(u, v)$ with no edge between them). For
+    each pair, compute three similarity scores: **Common Neighbors**
+    (`cocitation()` or manual), **Jaccard** (`similarity(g, method="jaccard")`),
+    and **Adamic-Adar** (manual computation: $\sum_{w \in N(u) \cap N(v)} 1/\log|N(w)|$).
+    Report the mean and maximum of each score across the sample.
+    *Hint: `sample(vcount(g), 2)` draws a random pair; check whether
+    they are connected with `g[u, v] == 0`. `intersect(neighbors(g, u),
+    neighbors(g, v))` returns the common neighbors. The Adamic-Adar
+    score is `sum(1 / log(degree(g, common)))` when `common` is
+    non-empty. To compute the three scores across all 1000 pairs, store
+    the pairs in a 1000-row matrix and use a `for` loop with
+    pre-allocated vectors, e.g.:*
+    ````
+    cn_vec <- numeric(1000); jac_vec <- numeric(1000); aa_vec <- numeric(1000)
+    for (i in 1:1000) {
+      u <- pairs[i, 1]; v <- pairs[i, 2]
+      common <- intersect(neighbors(g, u), neighbors(g, v))
+      cn_vec[i]  <- length(common)
+      aa_vec[i]  <- if (length(common) > 0) sum(1 / log(degree(g, common))) else 0
+      # Jaccard: cn / |union|
+    }
+    ```
+    `[1 point]`
+
+```{r}
+# <answer here>
+```
+
+2.  *(Moderate)* List the **top 10 most likely new routes** according to
+    Adamic-Adar from your sample. Report the exact Adamic-Adar score of
+    the top-ranked pair to <span class="underline">four decimal places</span>. Examine the list: do
+    these candidate routes make geographic and strategic sense? Pick one
+    and argue in 2--3 sentences whether it would be commercially viable
+    in real life. *Hint: `order(..., decreasing = TRUE)[1:10]` gives the
+    top 10 indices; `V(g)$name[idx]` converts a node index to its
+    airport name.* `[2 points]`
+
+```{r}
+# <answer here>
+```
+
+---
+
+## Part E: Visualization `[3 points]`
+
+1.  *(Moderate)* **Geographic distribution of network hubs.** Using
+    `ggplot2`, create a scatter plot of all airports in the giant
+    component, with longitude on the $x$-axis and latitude on the
+    $y$-axis. Color the points by their <span class="underline">degree</span> (use a continuous or
+    log scale). Highlight the top-20 airports by betweenness (the same
+    set you remove in C.2) using a distinctive marker — for example, a
+    different shape, a larger size, or a contrasting color. Use
+    `coord_fixed()` so the geography is not distorted. Include a title,
+    a legend, and a brief caption (2--3 sentences) describing what the
+    plot reveals about how structural importance is distributed
+    geographically in the airline network and what this implies for the
+    quarantine strategy in C.2. *Hint: `V(g)$longitude` and
+    `V(g)$latitude` give per-node coordinates. To highlight the top-20,
+    add a second `geom_point()` layer with a filtered subset and a
+    contrasting shape or color.* `[2 points]`
+
+```{r}
+# <answer here>
+```
+
+2.  *(Moderate)* **Predicted-routes visualization.** Using `visNetwork`,
+    create an interactive plot showing the top-10 predicted links from
+    D.2 overlaid on the existing network. Use a visually distinct edge
+    style (e.g., dashed red) for the predicted links versus existing
+    routes. Restrict the displayed network to a manageable subset (e.g.,
+    the 100 highest-degree airports plus the endpoints of all predicted
+    links) so the plot is readable. Include a brief caption explaining
+    what your visualization shows. *Hint: `visNetwork` takes two
+    data.frames — one for nodes (with `id`, `label`) and one for edges
+    (with `from`, `to`, plus optional `dashes` and `color`). Use
+    `induced_subgraph()` to extract a readable subgraph and
+    `as_data_frame(sub_g, what = "edges")` to get its edges.* `[1 point]`
+
+```{r}
+# <answer here>
+```
