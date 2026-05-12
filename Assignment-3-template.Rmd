@@ -288,6 +288,9 @@ peak_times <- sapply(sir_runs, function(s) s$times[which.max(s$NI)])
 cat("(a) Mean               :", mean(final_sizes), "\n")
 cat("(a) Standard Deviation :", sd(final_sizes), "\n")
 cat("(b) Mean time to peak  :", mean(peak_times), "\n")
+
+# Save the mean for Part C.2 reference
+mean_b2 <- mean(final_sizes)
 ```
 Across 50 simulations, the mean final size was 0.93 (SD = 0.19), indicating that, on average, 93% of airports were infected by the end of the simulation. This is notably higher than the suggested range of 0.55-0.70 during office hours and likely reflects the airline network's highly connected hub structure. The mean time to peak infection was approximately 22.5 time steps.
 
@@ -428,9 +431,9 @@ if(length(overlap_airports) > 0) {
   cat("Overlapping airports: None\n")
 }
 ```
-(a) The Monte Carlo simulations reveal that the targeted strategies offer virtually no improvement (roughly -0.22%) over the random-3 baseline. Because the airline network is highly connected and the infection parameters ($\beta=0.1$, $\gamma=0.01$) result in a massive 93% final epidemic size, the contagion is too virulent for the starting seeds to make a structural difference; any random seed quickly reaches a central hub.
+The improvement of the best targeted strategy over random-3 was approximately r round(improvement_pct, 2)%, as computed above. Given that the ratio $\beta/\gamma = 10$ far exceeds the epidemic threshold, the global airline network is so highly interconnected that the choice of initial seed nodes has a minimal impact on the final epidemic size. The "Small-World" nature of the network ensures that even a random seed quickly reaches a major hub, leading to a massive outbreak that infects over 90% of the nodes.  
 
-(b) Furthermore, the top-3-by-degree and top-3-by-betweenness strategies yield partially overlapping airports, specifically Charles de Gaulle International Airport. This partial overlap indicates a classic "hub-and-spoke" structure: some mega-hubs that accumulate the highest volume of direct routes (high degree) also act as the critical global bridges connecting disparate regions (high betweenness). Other airports, however, serve primarily as strategic bridges (like Anchorage) without necessarily having the absolute highest number of direct routes.
+Furthermore, the top-3-by-degree and top-3-by-betweenness strategies yield partially overlapping airports, specifically Charles de Gaulle International Airport. This overlap confirms a classic "hub-and-spoke" structure where key global gateways act simultaneously as volume collectors (high degree) and critical bridges (high betweenness). However, the presence of airports like Anchorage in the betweenness list highlights nodes that serve as strategic geographic bridges despite having fewer direct connections
 
 2.  *(Moderate)* **Quarantine.** Remove the top 20 airports by
     betweenness centrality from the network. Run SIR with the same
@@ -445,23 +448,21 @@ if(length(overlap_airports) > 0) {
 ```{r}
 set.seed(42)
 
-# Identify the top 20 airports by betweenness
-betw_scores <- betweenness(g)
 top_20_betw_idx <- order(-betw_scores)[1:20]
 
 g_quarantine <- delete_vertices(g, top_20_betw_idx)
 
-# Run 50 SIR simulations on the remaining network using B.2 parameters
+# Run 50 SIR simulations on the remaining network
 beta <- 0.1
 gamma <- 0.01
 sir_quarantine <- sir(g_quarantine, beta = beta, gamma = gamma, no.sim = 50)
 
+# Collect final sizes using the same pattern as B.2
 final_sizes_q <- sapply(sir_quarantine, function(s) tail(s$NR, 1) / vcount(g_quarantine))
-
 mean_quarantine <- mean(final_sizes_q)
 
-# Compute the percentage reduction relative to B.2
-mean_b2 <- 0.9305583
+# Compute the percentage reduction relative to B.2 
+# Using the dynamic variable mean_b2 instead of a hardcoded number
 reduction_pct <- ((mean_b2 - mean_quarantine) / mean_b2) * 100
 
 cat("New mean final size   :", mean_quarantine, "\n")
