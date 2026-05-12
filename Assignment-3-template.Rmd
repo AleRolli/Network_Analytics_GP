@@ -376,8 +376,61 @@ cat("Ratio tau_c (airline) / tau_c (ER) :", round(tau_c / tau_c_ER, 2), "\n")
     ~30 seconds.* `[3 points]`
 
 ```{r}
-# <answer here>
+set.seed(42)
+
+beta <- 0.1
+gamma <- 0.01
+
+# Select seed nodes
+random_3 <- sample(V(g), 3)
+
+deg_scores <- degree(g)
+top_3_degree <- V(g)[order(deg_scores, decreasing = TRUE)[1:3]]
+
+betw_scores <- betweenness(g)
+top_3_betw <- V(g)[order(betw_scores, decreasing = TRUE)[1:3]]
+
+# Run 20 Monte Carlo simulations per strategy
+res_random <- replicate(20, simulate_sir(g, random_3, beta, gamma))
+res_degree <- replicate(20, simulate_sir(g, top_3_degree, beta, gamma))
+res_betw <- replicate(20, simulate_sir(g, top_3_betw, beta, gamma))
+
+# Compile results into a data frame
+results_table <- data.frame(
+  strategy = c("random-3", "top-3-degree", "top-3-betweenness"),
+  mean_final_size = c(mean(res_random), mean(res_degree), mean(res_betw)),
+  sd_final_size = c(sd(res_random), sd(res_degree), sd(res_betw))
+)
+
+print(results_table)
+
+# Calculate improvement of the best targeted strategy over random
+best_mean <- max(mean(res_degree), mean(res_betw))
+improvement_pct <- ((best_mean - mean(res_random)) / mean(res_random)) * 100
+
+cat("Improvement over random-3:", round(improvement_pct, 2), "%\n")
 ```
+```{r}
+# Extract airport names (or IATA codes) using the professor's hint
+names_degree <- V(g)$name[top_3_degree]
+names_betw <- V(g)$name[top_3_betw]
+
+cat("--- Top 3 Airports ---\n")
+cat("By Degree      :", paste(names_degree, collapse = ", "), "\n")
+cat("By Betweenness :", paste(names_betw, collapse = ", "), "\n\n")
+
+# Find if there are common airports in both lists
+overlap_airports <- intersect(names_degree, names_betw)
+
+if(length(overlap_airports) > 0) {
+  cat("Overlapping airports:", paste(overlap_airports, collapse = ", "), "\n")
+} else {
+  cat("Overlapping airports: None\n")
+}
+```
+(a) The Monte Carlo simulations reveal that the targeted strategies offer virtually no improvement (roughly -0.22%) over the random-3 baseline. Because the airline network is highly connected and the infection parameters ($\beta=0.1$, $\gamma=0.01$) result in a massive 93% final epidemic size, the contagion is too virulent for the starting seeds to make a structural difference; any random seed quickly reaches a central hub.
+
+(b) Furthermore, the top-3-by-degree and top-3-by-betweenness strategies yield partially overlapping airports, specifically Charles de Gaulle International Airport. This partial overlap indicates a classic "hub-and-spoke" structure: some mega-hubs that accumulate the highest volume of direct routes (high degree) also act as the critical global bridges connecting disparate regions (high betweenness). Other airports, however, serve primarily as strategic bridges (like Anchorage) without necessarily having the absolute highest number of direct routes.
 
 2.  *(Moderate)* **Quarantine.** Remove the top 20 airports by
     betweenness centrality from the network. Run SIR with the same
@@ -390,9 +443,31 @@ cat("Ratio tau_c (airline) / tau_c (ER) :", round(tau_c / tau_c_ER, 2), "\n")
     same `igraph::sir()` call from B.2 on it.* `[2 points]`
 
 ```{r}
-# <answer here>
-```
+set.seed(42)
 
+# Identify the top 20 airports by betweenness
+betw_scores <- betweenness(g)
+top_20_betw_idx <- order(-betw_scores)[1:20]
+
+g_quarantine <- delete_vertices(g, top_20_betw_idx)
+
+# Run 50 SIR simulations on the remaining network using B.2 parameters
+beta <- 0.1
+gamma <- 0.01
+sir_quarantine <- sir(g_quarantine, beta = beta, gamma = gamma, no.sim = 50)
+
+final_sizes_q <- sapply(sir_quarantine, function(s) tail(s$NR, 1) / vcount(g_quarantine))
+
+mean_quarantine <- mean(final_sizes_q)
+
+# Compute the percentage reduction relative to B.2
+mean_b2 <- 0.9305583
+reduction_pct <- ((mean_b2 - mean_quarantine) / mean_b2) * 100
+
+cat("New mean final size   :", mean_quarantine, "\n")
+cat("Percentage reduction  :", round(reduction_pct, 2), "%\n")
+```
+Removing the top 20 airports by betweenness centrality reduced the new mean final epidemic size to approximately 0.85, which represents an 8.61% reduction compared to the baseline scenario. In terms of public health policy, targeting high-betweenness hubs works well to contain an outbreak when a network relies on strict bottlenecks. However, it fails in a highly dense, globally integrated network, because the contagion easily bypasses the quarantine through alternative secondary routes.
 ---
 
 ## Part D: Link Prediction `[3 points]`
