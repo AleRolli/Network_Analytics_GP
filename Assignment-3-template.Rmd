@@ -275,16 +275,19 @@ When p is low and q is high, the inflection point shifts earlier and the curve r
     `s$times[which.max(s$NI)]`.* `[2 points]`
 
 ```{r}
+# Set seed and parameters
 set.seed(42)
-
 beta <- 0.1
 gamma <- 0.01
 
+# Run 50 SIR simulations on graph g
 sir_runs <- sir(g, beta = beta, gamma = gamma, no.sim = 50)
 
+# Get final epidemic size and peak infection time per run
 final_sizes <- sapply(sir_runs, function(s) tail(s$NR, 1) / vcount(g))
 peak_times <- sapply(sir_runs, function(s) s$times[which.max(s$NI)])
 
+# Print mean, standard deviation, and mean time to peak
 cat("(a) Mean               :", mean(final_sizes), "\n")
 cat("(a) Standard Deviation :", sd(final_sizes), "\n")
 cat("(b) Mean time to peak  :", mean(peak_times), "\n")
@@ -321,11 +324,15 @@ Across 50 simulations, the mean final size was 0.93 (SD = 0.19), indicating that
 
 ```{r}
 # (a)
+# Compute degree statistics of the graph
 k <- degree(g)
 k_mean <- mean(k)
 k2_mean <- mean(k^2)
+
+# Calculate epidemic threshold using heterogeneous mean-field theory
 tau_c <- k_mean / (k2_mean - k_mean)
 
+# Print results
 cat("<k>  :", k_mean, "\n")
 cat("<k^2> :", k2_mean, "\n")
 cat("tau_c (airline) :", tau_c, "\n")
@@ -336,13 +343,15 @@ cat("tau_c (airline) :", tau_c, "\n")
 
 ```{r}
 # (b)
+# Compute epidemic threshold for Erdős-Rényi graph
 k2_mean_ER <- k_mean^2 + k_mean
 tau_c_ER <- k_mean / (k2_mean_ER - k_mean)
 
+# Compare thresholds between airline and ER network
 cat("tau_c (ER)      :", tau_c_ER, "\n")
 cat("Ratio tau_c (airline) / tau_c (ER) :", round(tau_c / tau_c_ER, 2), "\n")
 ```
-(b) A matched Erdős–Rényi graph results in a value of $\tau_c$ of 0.085, giving a ratio of airline $\tau_c$ to ER $\tau_c$ of 0.18. This indicates that the epidemic threshold of the airline network is only 18% of what it would be in a random network of the same size and density. Diseases or information require far less contagiousness to trigger a global outbreak in the real network. This is because the airline network has a heavy-tailed degree distribution. A small number of major hubs, such as Atlanta or Frankfurt, inflate $\langle k^2 \rangle$ far above $\langle k \rangle ^2$, causing a decrease in $\tau_c$ and making the network far more vulnerable to spreading than its density alone would suggest.
+(b) The Erdős–Rényi graph results in a value of $\tau_c$ of 0.085, giving a ratio of airline $\tau_c$ to ER $\tau_c$ of 0.18. This indicates that the epidemic threshold of the airline network is only 18% of what it would be in a random network of the same size and density. Diseases or information require far less contagiousness to trigger a global outbreak in the real network. This is because the airline network has a heavy-tailed degree distribution. A small number of major hubs, such as Atlanta or Frankfurt, inflate $\langle k^2 \rangle$ far above $\langle k \rangle ^2$, causing a decrease in $\tau_c$ and making the network far more vulnerable to spreading than its density alone would suggest.
 
 
 ---
