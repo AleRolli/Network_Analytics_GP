@@ -745,7 +745,8 @@ vis.network <- visOptions(
 
 vis.network <- visPhysics(
   vis.network,
-  stabilization = list(iterations = 200)
+  enabled = FALSE,
+  stabilization = list(enabled = TRUE, iterations = 1000)
 )
 
 vis.network
