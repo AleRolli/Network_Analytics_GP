@@ -594,7 +594,61 @@ As a commercial viability example, consider a top-ranked pair connecting two lar
     contrasting shape or color.* `[2 points]`
 
 ```{r}
-# <answer here>
+# Prepare node-level data for the geographic visualization
+df.nodes <- data.frame(
+  longitude = as.numeric(V(g)$longitude),
+  latitude = as.numeric(V(g)$latitude),
+  degree = degree(g)
+)
+
+# Use the same top-20 betweenness airports removed in Part C.2
+top.20.betw.idx <- order(betw_scores, decreasing = TRUE)[1:20]
+
+df.nodes$is_top_20_betweenness <- seq_len(vcount(g)) %in%
+  top.20.betw.idx
+
+# Remove airports without valid geographic coordinates
+df.nodes.geo <- df.nodes[
+  !is.na(df.nodes$longitude) & !is.na(df.nodes$latitude),
+]
+
+# Plot airports by location and highlight structural bridges
+ggplot(df.nodes.geo, aes(x = longitude, y = latitude)) +
+  geom_point(
+    aes(colour = log10(degree + 1)),
+    size = 1.2,
+    alpha = 0.6
+  ) +
+  scale_colour_viridis_c(
+    name = expression(log[10](degree + 1)),
+    option = "plasma"
+  ) +
+  geom_point(
+    data = df.nodes.geo[df.nodes.geo$is_top_20_betweenness, ],
+    aes(x = longitude, y = latitude),
+    shape = 17,
+    colour = "red",
+    size = 3.5
+  ) +
+  coord_fixed() +
+  labs(
+    title = "Geographic Distribution of Airline Network Hubs",
+    x = "Longitude",
+    y = "Latitude",
+    caption = paste(
+      "Each point is an airport in the giant component; colour encodes",
+      "log-degree, with brighter points representing more connected",
+      "airports. Red triangles mark the top-20 airports by betweenness",
+      "centrality, which are the same airports removed in the quarantine",
+      "simulation. These airports are concentrated in major aviation",
+      "regions and act as bridges across inter-continental corridors."
+    )
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    plot.caption = element_text(hjust = 0, size = 8)
+  )
 ```
 
 2.  *(Moderate)* **Predicted-routes visualization.** Using `visNetwork`,
@@ -611,5 +665,88 @@ As a commercial viability example, consider a top-ranked pair connecting two lar
     `as_data_frame(sub_g, what = "edges")` to get its edges.* `[1 point]`
 
 ```{r}
-# <answer here>
+library(visNetwork)
+
+# Select a readable subset of the network
+top.100.degree.idx <- order(degree(g), decreasing = TRUE)[1:100]
+pred.endpoints.idx <- unique(as.integer(m.pairs[top10.idx, ]))
+keep.idx <- unique(c(top.100.degree.idx, pred.endpoints.idx))
+
+g.sub <- induced_subgraph(g, keep.idx)
+
+# Build node data for visNetwork
+node.names <- V(g.sub)$name
+v.degree <- degree(g)
+
+df.vis.nodes <- data.frame(
+  id = node.names,
+  label = node.names,
+  title = node.names,
+  value = as.numeric(v.degree[node.names])
+)
+
+# Existing routes in the selected subgraph
+df.sub.edges <- as_data_frame(g.sub, what = "edges")
+
+df.vis.edges.existing <- data.frame(
+  from = df.sub.edges$from,
+  to = df.sub.edges$to,
+  color = "#AAAAAA",
+  width = 1,
+  dashes = FALSE,
+  title = "Existing route"
+)
+
+# Top-10 predicted links from Part D.2
+df.vis.edges.predicted <- data.frame(
+  from = V(g)$name[m.pairs[top10.idx, 1]],
+  to = V(g)$name[m.pairs[top10.idx, 2]],
+  color = "red",
+  width = 3,
+  dashes = TRUE,
+  title = paste0(
+    "Predicted route | Adamic-Adar = ",
+    round(aa.vec[top10.idx], 4)
+  )
+)
+
+# Combine existing and predicted routes
+df.vis.edges <- rbind(
+  df.vis.edges.existing,
+  df.vis.edges.predicted
+)
+
+df.vis.edges <- df.vis.edges[
+  !is.na(df.vis.edges$from) & !is.na(df.vis.edges$to),
+]
+
+# Render interactive network
+vis.network <- visNetwork(
+  df.vis.nodes,
+  df.vis.edges,
+  main = "Top-10 Predicted Routes on the Airline Network"
+)
+
+vis.network <- visNodes(
+  vis.network,
+  scaling = list(min = 5, max = 25)
+)
+
+vis.network <- visEdges(
+  vis.network,
+  smooth = FALSE
+)
+
+vis.network <- visOptions(
+  vis.network,
+  highlightNearest = TRUE,
+  nodesIdSelection = TRUE
+)
+
+vis.network <- visPhysics(
+  vis.network,
+  stabilization = list(iterations = 200)
+)
+
+vis.network
 ```
