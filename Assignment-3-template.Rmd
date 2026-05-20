@@ -520,9 +520,16 @@ g.sub <- induced_subgraph(g, keep.idx)
 node.names <- V(g.sub)$name
 v.degree <- degree(g)
 
+# Map each airport's full name to its 3-letter IATA code for readable labels;
+# fall back to the full name when an IATA code is missing.
+iata.by.name <- setNames(dt.airports$iata, dt.airports$name)
+node.iata <- iata.by.name[node.names]
+node.iata[is.na(node.iata) | node.iata == ""] <-
+  node.names[is.na(node.iata) | node.iata == ""]
+
 df.vis.nodes <- data.frame(
   id = node.names,
-  label = node.names,
+  label = node.iata,
   title = node.names,
   value = as.numeric(v.degree[node.names])
 )
