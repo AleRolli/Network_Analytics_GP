@@ -237,7 +237,7 @@ cat("(b) Mean time to peak  :", mean(peak_times), "\n")
 mean_b2 <- mean(final_sizes)
 ```
 
-Across 50 simulations, the mean final size was 0.93 (SD = 0.19), indicating that, on average, 93% of airports were infected by the end of the simulation. This is notably higher than the suggested range of 0.55-0.70 during office hours and likely reflects the airline network's highly connected hub structure. The mean time to peak infection was approximately 22.5 time steps.
+Across 50 simulations, the mean final size was 0.93 (SD = 0.19), indicating that, on average, 93% of airports were infected by the end of the simulation. This is notably higher than the suggested range of 0.55-0.70 during office hours and likely reflects the airline network's highly connected hub structure. The mean time to peak infection was approximately 22.5 time steps. The relatively high SD (0.19) on a mean of 0.93 is driven by a bimodal outcome distribution rather than smooth variation: although $\beta/\gamma = 10$ is far above $\tau_c \approx 0.016$, the dynamics are still stochastic at the single-seed level. When the random seed happens to land on a very low-degree peripheral airport, the seed can recover before infecting any neighbour — roughly with probability $\gamma / (\gamma + \beta \cdot k_\text{seed})$ at the first step — producing a near-zero outbreak. These rare die-out runs sit alongside the typical ~97% saturation runs, which is exactly what inflates the SD.
 
 3.  *(Moderate)* **Heavy tails and the epidemic threshold.** The heterogeneous mean-field theory of SIR predicts an epidemic threshold $\tau_c = \langle k \rangle / (\langle k^2 \rangle - \langle k \rangle)$: for $\beta/\gamma$ below $\tau_c$, outbreaks die out; above it, they spread. Heavy-tailed degree distributions (a small minority of very-high-degree hubs) drive $\langle k^2 \rangle$ much higher than $\langle k \rangle^2$, which lowers $\tau_c$ and makes spreading easier.
 
@@ -325,7 +325,7 @@ cat("Improvement over random-3:", round(improvement_pct, 2), "%\n")
 ```
 
 ```{r}
-# Extract airport names (or IATA codes) using the professor's hint
+# Extract airport names (or IATA codes)
 names_degree <- V(g)$name[top_3_degree]
 names_betw <- V(g)$name[top_3_betw]
 
@@ -343,16 +343,16 @@ if(length(overlap_airports) > 0) {
 }
 ```
 
-The improvement of the best targeted strategy over random-3 was approximately r round(improvement_pct, 2)%, as computed above. Given that the ratio $\beta/\gamma = 10$ far exceeds the epidemic threshold, the global airline network is so highly interconnected that the choice of initial seed nodes has a minimal impact on the final epidemic size. The "Small-World" nature of the network ensures that even a random seed quickly reaches a major hub, leading to a massive outbreak that infects over 90% of the nodes.
+The improvement of the best targeted strategy over random-3 was approximately −0.22%, which is actually a slight degradation: random-3 produced the largest mean final size (0.9747), narrowly ahead of top-3-betweenness (0.9726) and top-3-degree (0.9708). In other words, no targeted strategy beats random seeding here. The question framed this as "choosing 3 airports to vaccinate (or 3 seed nodes for a viral campaign)"; because `simulate_sir()` passes the seeds as initially *infected* nodes (not removed/immune), the analysis answers the viral-campaign version where hubs act as super-spreaders, not the vaccination version where hubs would be removed to *reduce* spread. With $\beta/\gamma = 10$ far above the epidemic threshold $\tau_c \approx 0.016$, the network is so highly interconnected that the choice of initial seeds has minimal impact on the final epidemic size — even a random low-degree seed quickly reaches a major hub through the small-world topology and triggers a near-saturating outbreak (>97% of nodes), which is why targeted seeding offers no measurable advantage in this regime.
 
-Furthermore, the top-3-by-degree and top-3-by-betweenness strategies yield partially overlapping airports, specifically Charles de Gaulle International Airport. This overlap confirms a classic "hub-and-spoke" structure where key global gateways act simultaneously as volume collectors (high degree) and critical bridges (high betweenness). However, the presence of airports like Anchorage in the betweenness list highlights nodes that serve as strategic geographic bridges despite having fewer direct connections
+Furthermore, the top-3-by-degree and top-3-by-betweenness strategies yield partially overlapping airports, specifically Charles de Gaulle International Airport. This overlap confirms a classic "hub-and-spoke" structure where key global gateways act simultaneously as volume collectors (high degree) and critical bridges (high betweenness). However, the presence of airports like Anchorage in the betweenness list highlights nodes that serve as strategic geographic bridges despite having fewer direct connections.
 
 2.  *(Moderate)* **Quarantine.** Remove the top 20 airports by betweenness centrality from the network. Run SIR with the same parameters as B.2 (50 runs, single random seed each, on the remaining network). Report the new mean final epidemic size and compute the percentage reduction relative to B.2. In 2--3 sentences, connect this result to public health policy: when does removing high-betweenness hubs work, and when does it fail? *Hint: `delete_vertices()` returns a smaller graph; you can re-use the same `igraph::sir()` call from B.2 on it.* `[2 points]`
 
 ```{r}
 set.seed(42)
 
-top_20_betw_idx <- order(-betw_scores)[1:20]
+top_20_betw_idx <- order(betw_scores, decreasing = TRUE)[1:20]
 
 g_quarantine <- delete_vertices(g, top_20_betw_idx)
 
@@ -361,19 +361,22 @@ beta <- 0.1
 gamma <- 0.01
 sir_quarantine <- sir(g_quarantine, beta = beta, gamma = gamma, no.sim = 50)
 
-# Collect final sizes using the same pattern as B.2
-final_sizes_q <- sapply(sir_quarantine, function(s) tail(s$NR, 1) / vcount(g_quarantine))
+# Normalize to the ORIGINAL network size (vcount(g)) so the comparison with
+# B.2 uses the same denominator on both sides. Using vcount(g_quarantine)
+# would shrink the denominator by 20 nodes and understate the true reduction.
+n_original <- vcount(g)
+final_sizes_q <- sapply(sir_quarantine, function(s) tail(s$NR, 1) / n_original)
 mean_quarantine <- mean(final_sizes_q)
 
-# Compute the percentage reduction relative to B.2 
+# Compute the percentage reduction relative to B.2
 # Using the dynamic variable mean_b2 instead of a hardcoded number
 reduction_pct <- ((mean_b2 - mean_quarantine) / mean_b2) * 100
 
-cat("New mean final size   :", mean_quarantine, "\n")
-cat("Percentage reduction  :", round(reduction_pct, 2), "%\n")
+cat("New mean final size (fraction of original N):", mean_quarantine, "\n")
+cat("Percentage reduction                        :", round(reduction_pct, 2), "%\n")
 ```
 
-Removing the top 20 airports by betweenness centrality reduced the new mean final epidemic size to approximately 0.85, which represents an 8.61% reduction compared to the baseline scenario. In terms of public health policy, targeting high-betweenness hubs works well to contain an outbreak when a network relies on strict bottlenecks. However, it fails in a highly dense, globally integrated network, because the contagion easily bypasses the quarantine through alternative secondary routes.
+Removing the top 20 airports by betweenness centrality reduced the new mean final epidemic size to approximately 0.85 (expressed as a fraction of the original N = 3188, so both this number and the B.2 baseline of 0.93 share the same denominator), which represents a 9.13% reduction compared to the B.2 baseline. In terms of public health policy, targeting high-betweenness hubs works well to contain an outbreak when a network relies on strict bottlenecks. However, it fails in a highly dense, globally integrated network, because the contagion easily bypasses the quarantine through alternative secondary routes.
 
 ## Part D: Link Prediction `[3 points]`
 
@@ -436,7 +439,7 @@ cat(sprintf(
 
 The top-10 Adamic-Adar candidates connect airports that share many high-degree hub neighbors without currently having a direct route. Geographically, these pairs tend to cluster within densely connected regions — North America, Europe, and East Asia — where hub airports are abundant, making it structurally plausible that two well-connected airports are linked by multiple intermediaries yet lack a nonstop service. Strategically, a high Adamic-Adar score signals that latent passenger demand is already being satisfied indirectly through shared hubs, and a direct connection would divert that traffic by reducing layover time.
 
-As a commercial viability example, consider a top-ranked pair connecting two large secondary hubs within the same continent (e.g., two sizeable North American or European cities currently without a nonstop): the high Adamic-Adar score indicates that passengers already travel between them via one or more shared major hubs. A direct route would attract both leisure travelers seeking convenience and business travelers for whom connection time is costly, and it would be commercially viable provided the origin-destination market is large enough to sustain a minimum viable frequency (typically 3–5 flights per week for medium-haul routes) without depending entirely on transfer traffic.
+As a commercial viability example, consider the top-ranked pair in our run, Eindhoven (EIN) ↔ Ben Gurion International Airport (TLV), with an Adamic-Adar score of 4.5517. These are not "two secondary hubs within the same continent" — Eindhoven is a leisure-oriented secondary airport in the southern Netherlands and Tel Aviv is Israel's main international gateway, so the link is intercontinental — but the high Adamic-Adar score still has a clean interpretation: passengers between the two are already being routed indirectly through shared high-degree intermediaries (Schiphol, Frankfurt, Istanbul), and a nonstop service would capture that diverted demand. Commercial viability is plausible: the ~3.5-hour stage length suits low-cost carrier economics, Tel Aviv has a substantial business and diaspora traveller base, and Eindhoven already concentrates Ryanair/Wizz/Transavia leisure traffic; 3–5 weekly flights look defensible, though margins would be sensitive to fuel prices and to Israeli airspace risk premia rather than to baseline O&D demand.
 
 ------------------------------------------------------------------------
 
@@ -452,11 +455,9 @@ df.nodes <- data.frame(
   degree = degree(g)
 )
 
-# Use the same top-20 betweenness airports removed in Part C.2
-top.20.betw.idx <- order(betw_scores, decreasing = TRUE)[1:20]
-
+# Re-use the same top-20 betweenness airports computed in Part C.2
 df.nodes$is_top_20_betweenness <- seq_len(vcount(g)) %in%
-  top.20.betw.idx
+  top_20_betw_idx
 
 # Remove airports without valid geographic coordinates
 df.nodes.geo <- df.nodes[
