@@ -470,18 +470,20 @@ ggplot(df.nodes.geo, aes(x = longitude, y = latitude)) +
   geom_point(
     aes(colour = log10(degree + 1)),
     size = 1.2,
-    alpha = 0.6
+    alpha = 0.75
   ) +
-  scale_colour_viridis_c(
+  scale_colour_gradient(
     name = expression(log[10](degree + 1)),
-    option = "plasma"
+    low = "grey85",
+    high = "#08519c"
   ) +
   geom_point(
     data = df.nodes.geo[df.nodes.geo$is_top_20_betweenness, ],
     aes(x = longitude, y = latitude),
-    shape = 17,
+    shape = 1,
     colour = "red",
-    size = 3.5
+    size = 4,
+    stroke = 1.3
   ) +
   coord_fixed() +
   labs(
@@ -490,11 +492,12 @@ ggplot(df.nodes.geo, aes(x = longitude, y = latitude)) +
     y = "Latitude",
     caption = paste(
       "Each point is an airport in the giant component; colour encodes",
-      "log-degree, with brighter points representing more connected",
-      "airports. Red triangles mark the top-20 airports by betweenness",
-      "centrality, which are the same airports removed in the quarantine",
-      "simulation. These airports are concentrated in major aviation",
-      "regions and act as bridges across inter-continental corridors."
+      "log-degree on a continuous grey-to-blue scale, with darker blue",
+      "points representing more connected airports. Red rings mark the",
+      "top-20 airports by betweenness centrality, which are the same",
+      "airports removed in the quarantine simulation. These airports are",
+      "concentrated in major aviation regions and act as bridges across",
+      "inter-continental corridors."
     )
   ) +
   theme_minimal(base_size = 11) +
@@ -600,3 +603,5 @@ vis.network <- visPhysics(
 
 vis.network
 ```
+
+The plot displays 115 airports — the 100 highest-degree airports plus the 20 endpoints of the top-10 predicted links (only 5 of which are themselves top-100 hubs) — with IATA codes as labels, node size scaled by degree, and the full airport name available on hover. Existing routes are drawn as 2,173 thin gray edges forming a dense hub-to-hub mesh, while the 10 predicted links are overlaid as dashed red edges; almost every red edge connects a smaller airport (e.g., EIN, HAU, LPQ, STX) to either a major hub or another mid-sized airport on the other side of the world. This makes the Adamic-Adar logic tangible: the predicted pairs are not "two big hubs missing a link" but rather airport pairs that share many high-degree *common neighbors* — passengers are already being routed indirectly through those shared hubs (visible as the surrounding gray mesh), and a nonstop service would simply short-circuit that diverted demand.
