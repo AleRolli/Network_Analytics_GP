@@ -52,7 +52,7 @@ In this assignment we will analyze diffusion processes, seeding strategies, and 
 ### `routes.dat`
 
 | Column | Field               | Type    | Description                           |
-|--------------|---------------|--------------|-------------------------------|
+|--------|---------------------|---------|---------------------------------------|
 | 1      | `airline`           | string  | Airline IATA/ICAO code                |
 | 2      | `airline_id`        | integer | Airline OpenFlights identifier        |
 | 3      | `source_airport`    | string  | Source airport IATA/ICAO code         |
@@ -489,22 +489,13 @@ ggplot(df.nodes.geo, aes(x = longitude, y = latitude)) +
   labs(
     title = "Geographic Distribution of Airline Network Hubs",
     x = "Longitude",
-    y = "Latitude",
-    caption = "Each point is an airport in the giant component; colour encodes
-      log-degree on a continuous grey-to-blue scale, with darker blue
-      points representing more connected airports. Red rings mark the
-      top-20 airports by betweenness centrality, which are the same
-      airports removed in the quarantine simulation. These airports are
-      concentrated in major aviation regions and act as bridges across
-      inter-continental corridors."
-    )
+    y = "Latitude"
   ) +
   theme_minimal(base_size = 11) +
-  theme(
-    plot.title = element_text(face = "bold"),
-    plot.caption = element_text(hjust = 0, size = 8)
-  )
+  theme(plot.title = element_text(face = "bold"))
 ```
+
+Each point is an airport in the giant component; colour encodes log-degree on a continuous grey-to-blue scale, with darker blue points representing more connected airports. Red rings mark the top-20 airports by betweenness centrality, which are the same airports removed in the quarantine simulation in C.2. These airports are concentrated in a few major aviation regions (North America, Europe, East Asia) and act as bridges across inter-continental corridors, which is exactly why removing them produced a measurable — though limited — drop in the final epidemic size.
 
 2.  *(Moderate)* **Predicted-routes visualization.** Using `visNetwork`, create an interactive plot showing the top-10 predicted links from D.2 overlaid on the existing network. Use a visually distinct edge style (e.g., dashed red) for the predicted links versus existing routes. Restrict the displayed network to a manageable subset (e.g., the 100 highest-degree airports plus the endpoints of all predicted links) so the plot is readable. Include a brief caption explaining what your visualization shows. *Hint: `visNetwork` takes two data.frames — one for nodes (with `id`, `label`) and one for edges (with `from`, `to`, plus optional `dashes` and `color`). Use `induced_subgraph()` to extract a readable subgraph and `as_data_frame(sub_g, what = "edges")` to get its edges.* `[1 point]`
 
