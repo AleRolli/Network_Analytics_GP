@@ -7059,10 +7059,10 @@ using data from <a href="https://openflights.org/data">OpenFlights.org</a>.</p>
 <h3><code>routes.dat</code></h3>
 <table>
 <colgroup>
-<col width="20%" />
-<col width="20%" />
-<col width="20%" />
-<col width="37%" />
+<col width="10%" />
+<col width="27%" />
+<col width="11%" />
+<col width="50%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -7276,22 +7276,23 @@ on one figure, build a long-format data.frame with one row per
 <code>ggplot()</code>.</em> <code>[2 points]</code></li>
 </ol>
 <pre class="r"><code># Define the four (p, q) parameter pairs to simulate
-params &lt;- list(
+l.params &lt;- list(
   c(p = 0.01, q = 0.10),
   c(p = 0.03, q = 0.30),
   c(p = 0.10, q = 0.10),
   c(p = 0.01, q = 0.40))
 
 # Simulate Bass model for each pair and stack results into long format
-dt.bass &lt;- rbindlist(lapply(params, function(pq) {
+# (tstep used instead of t to avoid shadowing R&#39;s t() transpose function)
+dt.bass &lt;- rbindlist(lapply(l.params, function(pq) {
   p &lt;- pq[&quot;p&quot;]
   q &lt;- pq[&quot;q&quot;]
   f &lt;- numeric(100)
   f[1] &lt;- p  # at t=1: no prior adopters, so imitation term is zero
-  for (t in 2:100) {
-    f[t] &lt;- f[t - 1] +
-      p * (1 - f[t - 1]) +        # innovation: advertising-driven adoption
-      q * (1 - f[t - 1]) * f[t - 1]  # imitation: word-of-mouth adoption
+  for (tstep in 2:100) {
+    f[tstep] &lt;- f[tstep - 1] +
+      p * (1 - f[tstep - 1]) +        # innovation: advertising-driven adoption
+      q * (1 - f[tstep - 1]) * f[tstep - 1]  # imitation: word-of-mouth adoption
   }
   data.table(
     t = 1:100,
@@ -7338,26 +7339,28 @@ time-to-peak using <code>s$times[which.max(s$NI)]</code>.</em>
 <code>[2 points]</code></li>
 </ol>
 <pre class="r"><code># Set seed and parameters
+# (beta.rate / gamma.rate avoid shadowing R&#39;s built-in beta() and gamma()
+# functions; these constants are re-used in C.1 and C.2)
 set.seed(42)
-beta &lt;- 0.1
-gamma &lt;- 0.01
+beta.rate &lt;- 0.1
+gamma.rate &lt;- 0.01
 
 # Run 50 SIR simulations on graph g
-sir_runs &lt;- sir(g, beta = beta, gamma = gamma, no.sim = 50)
+sir.runs &lt;- sir(g, beta = beta.rate, gamma = gamma.rate, no.sim = 50)
 
 # Get final epidemic size and peak infection time per run
-final_sizes &lt;- sapply(sir_runs, function(s) tail(s$NR, 1) / vcount(g))
-peak_times &lt;- sapply(sir_runs, function(s) s$times[which.max(s$NI)])
+final.sizes &lt;- sapply(sir.runs, function(s) tail(s$NR, 1) / vcount(g))
+peak.times &lt;- sapply(sir.runs, function(s) s$times[which.max(s$NI)])
 
 # Print mean, standard deviation, and mean time to peak
-cat(&quot;(a) Mean               :&quot;, mean(final_sizes), &quot;\n&quot;)</code></pre>
+cat(&quot;(a) Mean               :&quot;, mean(final.sizes), &quot;\n&quot;)</code></pre>
 <pre><code>## (a) Mean               : 0.9305583</code></pre>
-<pre class="r"><code>cat(&quot;(a) Standard Deviation :&quot;, sd(final_sizes), &quot;\n&quot;)</code></pre>
+<pre class="r"><code>cat(&quot;(a) Standard Deviation :&quot;, sd(final.sizes), &quot;\n&quot;)</code></pre>
 <pre><code>## (a) Standard Deviation : 0.1919464</code></pre>
-<pre class="r"><code>cat(&quot;(b) Mean time to peak  :&quot;, mean(peak_times), &quot;\n&quot;)</code></pre>
+<pre class="r"><code>cat(&quot;(b) Mean time to peak  :&quot;, mean(peak.times), &quot;\n&quot;)</code></pre>
 <pre><code>## (b) Mean time to peak  : 22.45025</code></pre>
 <pre class="r"><code># Save the mean for Part C.2 reference
-mean_b2 &lt;- mean(final_sizes)</code></pre>
+mean.b2 &lt;- mean(final.sizes)</code></pre>
 <p>Across 50 simulations, the mean final size was 0.93 (SD = 0.19),
 indicating that, on average, 93% of airports were infected by the end of
 the simulation. This is notably higher than the suggested range of
@@ -7403,18 +7406,18 @@ moments.</em> <code>[3 points]</code></p></li>
 <pre class="r"><code># (a)
 # Compute degree statistics of the graph
 k &lt;- degree(g)
-k_mean &lt;- mean(k)
-k2_mean &lt;- mean(k^2)
+k.mean &lt;- mean(k)
+k2.mean &lt;- mean(k^2)
 
 # Calculate epidemic threshold using heterogeneous mean-field theory
-tau_c &lt;- k_mean / (k2_mean - k_mean)
+tau.c &lt;- k.mean / (k2.mean - k.mean)
 
 # Print results
-cat(&quot;&lt;k&gt;  :&quot;, k_mean, &quot;\n&quot;)</code></pre>
+cat(&quot;&lt;k&gt;  :&quot;, k.mean, &quot;\n&quot;)</code></pre>
 <pre><code>## &lt;k&gt;  : 11.81493</code></pre>
-<pre class="r"><code>cat(&quot;&lt;k^2&gt; :&quot;, k2_mean, &quot;\n&quot;)</code></pre>
+<pre class="r"><code>cat(&quot;&lt;k^2&gt; :&quot;, k2.mean, &quot;\n&quot;)</code></pre>
 <pre><code>## &lt;k^2&gt; : 770.409</code></pre>
-<pre class="r"><code>cat(&quot;tau_c (airline) :&quot;, tau_c, &quot;\n&quot;)</code></pre>
+<pre class="r"><code>cat(&quot;tau_c (airline) :&quot;, tau.c, &quot;\n&quot;)</code></pre>
 <pre><code>## tau_c (airline) : 0.01557477</code></pre>
 <ol style="list-style-type: lower-alpha">
 <li>The airline network has <span class="math inline">\(\langle k
@@ -7425,13 +7428,13 @@ expected.</li>
 </ol>
 <pre class="r"><code># (b)
 # Compute epidemic threshold for Erdős-Rényi graph
-k2_mean_ER &lt;- k_mean^2 + k_mean
-tau_c_ER &lt;- k_mean / (k2_mean_ER - k_mean)
+k2.mean.er &lt;- k.mean^2 + k.mean
+tau.c.er &lt;- k.mean / (k2.mean.er - k.mean)
 
 # Compare thresholds between airline and ER network
-cat(&quot;tau_c (ER)      :&quot;, tau_c_ER, &quot;\n&quot;)</code></pre>
+cat(&quot;tau_c (ER)      :&quot;, tau.c.er, &quot;\n&quot;)</code></pre>
 <pre><code>## tau_c (ER)      : 0.08463867</code></pre>
-<pre class="r"><code>cat(&quot;Ratio tau_c (airline) / tau_c (ER) :&quot;, round(tau_c / tau_c_ER, 2), &quot;\n&quot;)</code></pre>
+<pre class="r"><code>cat(&quot;Ratio tau_c (airline) / tau_c (ER) :&quot;, round(tau.c / tau.c.er, 2), &quot;\n&quot;)</code></pre>
 <pre><code>## Ratio tau_c (airline) / tau_c (ER) : 0.18</code></pre>
 <ol start="2" style="list-style-type: lower-alpha">
 <li>The Erdős–Rényi graph results in a value of <span class="math inline">\(\tau_c\)</span> of 0.085, giving a ratio of
@@ -7484,56 +7487,54 @@ on this graph takes ~30 seconds.</em> <code>[3 points]</code></p></li>
 </ol>
 <pre class="r"><code>set.seed(42)
 
-beta &lt;- 0.1
-gamma &lt;- 0.01
+# Re-uses beta.rate / gamma.rate defined in B.2
 
 # Select seed nodes
-random_3 &lt;- sample(V(g), 3)
+random.3 &lt;- sample(V(g), 3)
 
-deg_scores &lt;- degree(g)
-top_3_degree &lt;- V(g)[order(deg_scores, decreasing = TRUE)[1:3]]
+deg.scores &lt;- degree(g)
+top.3.degree &lt;- V(g)[order(deg.scores, decreasing = TRUE)[1:3]]
 
-betw_scores &lt;- betweenness(g)
-top_3_betw &lt;- V(g)[order(betw_scores, decreasing = TRUE)[1:3]]
+betw.scores &lt;- betweenness(g)
+top.3.betw &lt;- V(g)[order(betw.scores, decreasing = TRUE)[1:3]]
 
 # Run 20 Monte Carlo simulations per strategy
-res_random &lt;- replicate(20, simulate_sir(g, random_3, beta, gamma))
-res_degree &lt;- replicate(20, simulate_sir(g, top_3_degree, beta, gamma))
-res_betw &lt;- replicate(20, simulate_sir(g, top_3_betw, beta, gamma))
+res.random &lt;- replicate(20, simulate_sir(g, random.3, beta.rate, gamma.rate))
+res.degree &lt;- replicate(20, simulate_sir(g, top.3.degree, beta.rate, gamma.rate))
+res.betw &lt;- replicate(20, simulate_sir(g, top.3.betw, beta.rate, gamma.rate))
 
 # Compile results into a data frame
-results_table &lt;- data.frame(
+df.results &lt;- data.frame(
   strategy = c(&quot;random-3&quot;, &quot;top-3-degree&quot;, &quot;top-3-betweenness&quot;),
-  mean_final_size = c(mean(res_random), mean(res_degree), mean(res_betw)),
-  sd_final_size = c(sd(res_random), sd(res_degree), sd(res_betw))
-)
+  mean_final_size = c(mean(res.random), mean(res.degree), mean(res.betw)),
+  sd_final_size = c(sd(res.random), sd(res.degree), sd(res.betw)))
 
-print(results_table)</code></pre>
+print(df.results)</code></pre>
 <pre><code>##            strategy mean_final_size sd_final_size
 ## 1          random-3       0.9746863   0.005820587
 ## 2      top-3-degree       0.9708124   0.009494917
 ## 3 top-3-betweenness       0.9725690   0.005467689</code></pre>
 <pre class="r"><code># Calculate improvement of the best targeted strategy over random
-best_mean &lt;- max(mean(res_degree), mean(res_betw))
-improvement_pct &lt;- ((best_mean - mean(res_random)) / mean(res_random)) * 100
+best.mean &lt;- max(mean(res.degree), mean(res.betw))
+improvement.pct &lt;- ((best.mean - mean(res.random)) / mean(res.random)) * 100
 
-cat(&quot;Improvement over random-3:&quot;, round(improvement_pct, 2), &quot;%\n&quot;)</code></pre>
+cat(&quot;Improvement over random-3:&quot;, round(improvement.pct, 2), &quot;%\n&quot;)</code></pre>
 <pre><code>## Improvement over random-3: -0.22 %</code></pre>
 <pre class="r"><code># Extract airport names (or IATA codes)
-names_degree &lt;- V(g)$name[top_3_degree]
-names_betw &lt;- V(g)$name[top_3_betw]
+names.degree &lt;- V(g)$name[top.3.degree]
+names.betw &lt;- V(g)$name[top.3.betw]
 
 cat(&quot;--- Top 3 Airports ---\n&quot;)</code></pre>
 <pre><code>## --- Top 3 Airports ---</code></pre>
-<pre class="r"><code>cat(&quot;By Degree      :&quot;, paste(names_degree, collapse = &quot;, &quot;), &quot;\n&quot;)</code></pre>
+<pre class="r"><code>cat(&quot;By Degree      :&quot;, paste(names.degree, collapse = &quot;, &quot;), &quot;\n&quot;)</code></pre>
 <pre><code>## By Degree      : Amsterdam Airport Schiphol, Frankfurt am Main Airport, Charles de Gaulle International Airport</code></pre>
-<pre class="r"><code>cat(&quot;By Betweenness :&quot;, paste(names_betw, collapse = &quot;, &quot;), &quot;\n\n&quot;)</code></pre>
+<pre class="r"><code>cat(&quot;By Betweenness :&quot;, paste(names.betw, collapse = &quot;, &quot;), &quot;\n\n&quot;)</code></pre>
 <pre><code>## By Betweenness : Charles de Gaulle International Airport, Los Angeles International Airport, Ted Stevens Anchorage International Airport</code></pre>
 <pre class="r"><code># Find if there are common airports in both lists
-overlap_airports &lt;- intersect(names_degree, names_betw)
+overlap.airports &lt;- intersect(names.degree, names.betw)
 
-if(length(overlap_airports) &gt; 0) {
-  cat(&quot;Overlapping airports:&quot;, paste(overlap_airports, collapse = &quot;, &quot;), &quot;\n&quot;)
+if (length(overlap.airports) &gt; 0) {
+  cat(&quot;Overlapping airports:&quot;, paste(overlap.airports, collapse = &quot;, &quot;), &quot;\n&quot;)
 } else {
   cat(&quot;Overlapping airports: None\n&quot;)
 }</code></pre>
@@ -7577,29 +7578,29 @@ returns a smaller graph; you can re-use the same
 </ol>
 <pre class="r"><code>set.seed(42)
 
-top_20_betw_idx &lt;- order(betw_scores, decreasing = TRUE)[1:20]
+top.20.betw.idx &lt;- order(betw.scores, decreasing = TRUE)[1:20]
 
-g_quarantine &lt;- delete_vertices(g, top_20_betw_idx)
+g.quarantine &lt;- delete_vertices(g, top.20.betw.idx)
 
 # Run 50 SIR simulations on the remaining network
-beta &lt;- 0.1
-gamma &lt;- 0.01
-sir_quarantine &lt;- sir(g_quarantine, beta = beta, gamma = gamma, no.sim = 50)
+# (re-uses beta.rate / gamma.rate defined in B.2)
+sir.quarantine &lt;- sir(g.quarantine,
+                      beta = beta.rate, gamma = gamma.rate, no.sim = 50)
 
 # Normalize to the ORIGINAL network size (vcount(g)) so the comparison with
-# B.2 uses the same denominator on both sides. Using vcount(g_quarantine)
+# B.2 uses the same denominator on both sides. Using vcount(g.quarantine)
 # would shrink the denominator by 20 nodes and understate the true reduction.
-n_original &lt;- vcount(g)
-final_sizes_q &lt;- sapply(sir_quarantine, function(s) tail(s$NR, 1) / n_original)
-mean_quarantine &lt;- mean(final_sizes_q)
+n.original &lt;- vcount(g)
+final.sizes.q &lt;- sapply(sir.quarantine,
+                        function(s) tail(s$NR, 1) / n.original)
+mean.quarantine &lt;- mean(final.sizes.q)
 
 # Compute the percentage reduction relative to B.2
-# Using the dynamic variable mean_b2 instead of a hardcoded number
-reduction_pct &lt;- ((mean_b2 - mean_quarantine) / mean_b2) * 100
+reduction.pct &lt;- ((mean.b2 - mean.quarantine) / mean.b2) * 100
 
-cat(&quot;New mean final size (fraction of original N):&quot;, mean_quarantine, &quot;\n&quot;)</code></pre>
+cat(&quot;New mean final size (fraction of original N):&quot;, mean.quarantine, &quot;\n&quot;)</code></pre>
 <pre><code>## New mean final size (fraction of original N): 0.8451443</code></pre>
-<pre class="r"><code>cat(&quot;Percentage reduction                        :&quot;, round(reduction_pct, 2), &quot;%\n&quot;)</code></pre>
+<pre class="r"><code>cat(&quot;Percentage reduction                        :&quot;, round(reduction.pct, 2), &quot;%\n&quot;)</code></pre>
 <pre><code>## Percentage reduction                        : 9.18 %</code></pre>
 <p>Removing the top 20 airports by betweenness centrality reduced the
 new mean final epidemic size to approximately 0.85 (expressed as a
@@ -7778,7 +7779,7 @@ df.nodes &lt;- data.frame(
 
 # Re-use the same top-20 betweenness airports computed in Part C.2
 df.nodes$is_top_20_betweenness &lt;- seq_len(vcount(g)) %in%
-  top_20_betw_idx
+  top.20.betw.idx
 
 # Remove airports without valid geographic coordinates
 df.nodes.geo &lt;- df.nodes[

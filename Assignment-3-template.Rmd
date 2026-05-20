@@ -52,7 +52,7 @@ In this assignment we will analyze diffusion processes, seeding strategies, and 
 ### `routes.dat`
 
 | Column | Field               | Type    | Description                           |
-|---------------|---------------|---------------|---------------------------|
+|--------|---------------------|---------|---------------------------------------|
 | 1      | `airline`           | string  | Airline IATA/ICAO code                |
 | 2      | `airline_id`        | integer | Airline OpenFlights identifier        |
 | 3      | `source_airport`    | string  | Source airport IATA/ICAO code         |
