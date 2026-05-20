@@ -52,7 +52,7 @@ In this assignment we will analyze diffusion processes, seeding strategies, and 
 ### `routes.dat`
 
 | Column | Field               | Type    | Description                           |
-|--------|---------------------|---------|---------------------------------------|
+|--------------|---------------|--------------|-------------------------------|
 | 1      | `airline`           | string  | Airline IATA/ICAO code                |
 | 2      | `airline_id`        | integer | Airline OpenFlights identifier        |
 | 3      | `source_airport`    | string  | Source airport IATA/ICAO code         |
@@ -377,7 +377,7 @@ cat("New mean final size (fraction of original N):", mean.quarantine, "\n")
 cat("Percentage reduction                        :", round(reduction.pct, 2), "%\n")
 ```
 
-Removing the top 20 airports by betweenness centrality reduced the new mean final epidemic size to approximately 0.85 (expressed as a fraction of the original N = 3188, so both this number and the B.2 baseline of 0.93 share the same denominator), which represents a 9.13% reduction compared to the B.2 baseline. In terms of public health policy, targeting high-betweenness hubs works well to contain an outbreak when a network relies on strict bottlenecks. However, it fails in a highly dense, globally integrated network, because the contagion easily bypasses the quarantine through alternative secondary routes.
+Removing the top 20 airports by betweenness centrality reduced the new mean final epidemic size to approximately 0.85 (expressed as a fraction of the original N = 3188, so both this number and the B.2 baseline of 0.93 share the same denominator), which represents a 9.18% reduction compared to the B.2 baseline. In terms of public health policy, targeting high-betweenness hubs works well to contain an outbreak when a network relies on strict bottlenecks. However, it fails in a highly dense, globally integrated network, because the contagion easily bypasses the quarantine through alternative secondary routes.
 
 ## Part D: Link Prediction `[3 points]`
 
