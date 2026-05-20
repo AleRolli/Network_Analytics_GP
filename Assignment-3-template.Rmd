@@ -151,9 +151,9 @@ g.raw <- graph_from_data_frame(
 g.simple <- simplify(g.raw)
 
 # Identify and extract the giant connected component
-comp <- components(g.simple)
-giant.id <- which.max(comp$csize)
-g <- induced_subgraph(g.simple, which(comp$membership == giant.id))
+l.comp <- components(g.simple)
+giant.id <- which.max(l.comp$csize)
+g <- induced_subgraph(g.simple, which(l.comp$membership == giant.id))
 ```
 
 2.  *(Easy)* Report the number of nodes, the number of edges, the density, and the mean degree of the giant component. Two sentences are enough. *Hint: `vcount(g)`, `ecount(g)`, `edge_density(g)`, `mean(degree(g))`.* `[1 point]`
@@ -225,11 +225,11 @@ beta.rate <- 0.1
 gamma.rate <- 0.01
 
 # Run 50 SIR simulations on graph g
-sir.runs <- sir(g, beta = beta.rate, gamma = gamma.rate, no.sim = 50)
+l.sir.runs <- sir(g, beta = beta.rate, gamma = gamma.rate, no.sim = 50)
 
 # Get final epidemic size and peak infection time per run
-final.sizes <- sapply(sir.runs, function(s) tail(s$NR, 1) / vcount(g))
-peak.times <- sapply(sir.runs, function(s) s$times[which.max(s$NI)])
+final.sizes <- sapply(l.sir.runs, function(s) tail(s$NR, 1) / vcount(g))
+peak.times <- sapply(l.sir.runs, function(s) s$times[which.max(s$NI)])
 
 # Print mean, standard deviation, and mean time to peak
 cat("(a) Mean               :", mean(final.sizes), "\n")
@@ -344,7 +344,7 @@ if (length(overlap.airports) > 0) {
 }
 ```
 
-The improvement of the best targeted strategy over random-3 was approximately −0.22%, which is actually a slight degradation: random-3 produced the largest mean final size (0.9747), narrowly ahead of top-3-betweenness (0.9726) and top-3-degree (0.9708). In other words, no targeted strategy beats random seeding here. The question framed this as "choosing 3 airports to vaccinate (or 3 seed nodes for a viral campaign)"; because `simulate_sir()` passes the seeds as initially *infected* nodes (not removed/immune), the analysis answers the viral-campaign version where hubs act as super-spreaders, not the vaccination version where hubs would be removed to *reduce* spread. With $\beta/\gamma = 10$ far above the epidemic threshold $\tau_c \approx 0.016$, the network is so highly interconnected that the choice of initial seeds has minimal impact on the final epidemic size — even a random low-degree seed quickly reaches a major hub through the small-world topology and triggers a near-saturating outbreak (\>97% of nodes), which is why targeted seeding offers no measurable advantage in this regime.
+The improvement of the best targeted strategy over random-3 was approximately −0.22%, which is actually a slight degradation: random-3 produced the largest mean final size (0.9747), narrowly ahead of top-3-betweenness (0.9726) and top-3-degree (0.9708). In other words, no targeted strategy beats random seeding here. The question framed this as "choosing 3 airports to vaccinate (or 3 seed nodes for a viral campaign)"; because `simulate_sir()` passes the seeds as initially *infected* nodes (not removed/immune), the analysis answers the viral-campaign version where hubs act as super-spreaders, not the vaccination version where hubs would be removed to *reduce* spread. A genuine vaccination experiment would require a different simulation design — either remove the 3 chosen airports from the graph (analogous to C.2) or initialise them in the "R" state — and then seed the outbreak from a random remaining node, with the expectation that targeted strategies would *decrease* rather than increase the final epidemic size relative to random. With $\beta/\gamma = 10$ far above the epidemic threshold $\tau_c \approx 0.016$, the network is so highly interconnected that the choice of initial seeds has minimal impact on the final epidemic size — even a random low-degree seed quickly reaches a major hub through the small-world topology and triggers a near-saturating outbreak (\>97% of nodes), which is why targeted seeding offers no measurable advantage in this regime.
 
 Furthermore, the top-3-by-degree and top-3-by-betweenness strategies yield partially overlapping airports, specifically Charles de Gaulle International Airport. This overlap confirms a classic "hub-and-spoke" structure where key global gateways act simultaneously as volume collectors (high degree) and critical bridges (high betweenness). However, the presence of airports like Anchorage in the betweenness list highlights nodes that serve as strategic geographic bridges despite having fewer direct connections.
 
@@ -359,14 +359,14 @@ g.quarantine <- delete_vertices(g, top.20.betw.idx)
 
 # Run 50 SIR simulations on the remaining network
 # (re-uses beta.rate / gamma.rate defined in B.2)
-sir.quarantine <- sir(g.quarantine,
-                      beta = beta.rate, gamma = gamma.rate, no.sim = 50)
+l.sir.quarantine <- sir(g.quarantine,
+                        beta = beta.rate, gamma = gamma.rate, no.sim = 50)
 
 # Normalize to the ORIGINAL network size (vcount(g)) so the comparison with
 # B.2 uses the same denominator on both sides. Using vcount(g.quarantine)
 # would shrink the denominator by 20 nodes and understate the true reduction.
 n.original <- vcount(g)
-final.sizes.q <- sapply(sir.quarantine,
+final.sizes.q <- sapply(l.sir.quarantine,
                         function(s) tail(s$NR, 1) / n.original)
 mean.quarantine <- mean(final.sizes.q)
 
@@ -377,7 +377,7 @@ cat("New mean final size (fraction of original N):", mean.quarantine, "\n")
 cat("Percentage reduction                        :", round(reduction.pct, 2), "%\n")
 ```
 
-Removing the top 20 airports by betweenness centrality reduced the new mean final epidemic size to approximately 0.85 (expressed as a fraction of the original N = 3188, so both this number and the B.2 baseline of 0.93 share the same denominator), which represents a 9.18% reduction compared to the B.2 baseline. In terms of public health policy, targeting high-betweenness hubs works well to contain an outbreak when a network relies on strict bottlenecks. However, it fails in a highly dense, globally integrated network, because the contagion easily bypasses the quarantine through alternative secondary routes.
+Removing the top 20 airports by betweenness centrality reduced the new mean final epidemic size to approximately 0.85 (expressed as a fraction of the original N = 3188, so both this number and the B.2 baseline of 0.93 share the same denominator), which represents a 9.18% reduction compared to the B.2 baseline. We deliberately normalise by the original $N$ rather than $N - 20$ so that the B.2 baseline and the post-quarantine size are measured on the same scale; this caps the maximum reachable fraction at $(N-20)/N \approx 0.994$ and therefore makes the reported reduction slightly conservative (i.e. a lower bound on the true relative effect), but it avoids the inflation that would result from shrinking the denominator together with the network. In terms of public health policy, targeting high-betweenness hubs works well to contain an outbreak when a network relies on strict bottlenecks. However, it fails in a highly dense, globally integrated network, because the contagion easily bypasses the quarantine through alternative secondary routes.
 
 ## Part D: Link Prediction `[3 points]`
 
@@ -385,8 +385,9 @@ Removing the top 20 airports by betweenness centrality reduced the new mean fina
 
 ```{r}
 # Sample 1000 non-adjacent pairs and compute link-prediction scores
+# (n.nodes — avoids shadowing the generic `n` used inside simulate_sir())
 set.seed(42)
-n <- vcount(g)
+n.nodes <- vcount(g)
 
 m.pairs <- matrix(0L, nrow = 1000, ncol = 2)
 cn.vec  <- numeric(1000)
@@ -395,7 +396,7 @@ aa.vec  <- numeric(1000)
 
 i <- 1
 while (i <= 1000) {
-  uv <- sample(n, 2)
+  uv <- sample(n.nodes, 2)
   u  <- uv[1]
   v  <- uv[2]
   if (g[u, v] == 0) {                          # only non-adjacent pairs
@@ -552,44 +553,30 @@ df.vis.edges.predicted <- data.frame(
   )
 )
 
-# Combine existing and predicted routes
-df.vis.edges <- rbind(
+# Combine existing and predicted routes, then drop any rows with NA endpoints
+df.vis.edges.all <- rbind(
   df.vis.edges.existing,
   df.vis.edges.predicted
 )
 
-df.vis.edges <- df.vis.edges[
-  !is.na(df.vis.edges$from) & !is.na(df.vis.edges$to),
+df.vis.edges.clean <- df.vis.edges.all[
+  !is.na(df.vis.edges.all$from) & !is.na(df.vis.edges.all$to),
 ]
 
-# Render interactive network
+# Render interactive network — single chained expression so the widget object
+# is built once and never reassigned.
 vis.network <- visNetwork(
   df.vis.nodes,
-  df.vis.edges,
+  df.vis.edges.clean,
   main = "Top-10 Predicted Routes on the Airline Network"
-)
-
-vis.network <- visNodes(
-  vis.network,
-  scaling = list(min = 5, max = 25)
-)
-
-vis.network <- visEdges(
-  vis.network,
-  smooth = FALSE
-)
-
-vis.network <- visOptions(
-  vis.network,
-  highlightNearest = TRUE,
-  nodesIdSelection = TRUE
-)
-
-vis.network <- visPhysics(
-  vis.network,
-  enabled = FALSE,
-  stabilization = list(enabled = TRUE, iterations = 1000)
-)
+) %>%
+  visNodes(scaling = list(min = 5, max = 25)) %>%
+  visEdges(smooth = FALSE) %>%
+  visOptions(highlightNearest = TRUE, nodesIdSelection = TRUE) %>%
+  visPhysics(
+    enabled = FALSE,
+    stabilization = list(enabled = TRUE, iterations = 1000)
+  )
 
 vis.network
 ```
